@@ -13,9 +13,9 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 public enum TypeOrigin {
-    PUBLIC,
-    INTERNAL,
-    EXTERNAL;
+    PUBLIC(true),
+    INTERNAL(true),
+    EXTERNAL(false);
 
     private static final List<Pattern> PUBLIC_PACKAGES = Stream.of(
             "org/gradle/*",
@@ -62,6 +62,7 @@ public enum TypeOrigin {
             "**/internal/**"
         ).map(TypeOrigin::toPackagePattern)
         .collect(ImmutableList.toImmutableList());
+    private final boolean gradleApi;
 
     private static Pattern toPackagePattern(String packageGlob) {
         return Pattern.compile("L" + packageGlob
@@ -100,5 +101,13 @@ public enum TypeOrigin {
 
     public static TypeOrigin of(IClass clazz) {
         return of(clazz.getName());
+    }
+
+    public boolean isGradleApi() {
+        return gradleApi;
+    }
+
+    TypeOrigin(boolean gradleApi) {
+        this.gradleApi = gradleApi;
     }
 }

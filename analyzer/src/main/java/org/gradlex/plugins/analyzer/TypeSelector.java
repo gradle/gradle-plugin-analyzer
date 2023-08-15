@@ -9,7 +9,7 @@ public class TypeSelector {
         return new Analysis() {
             @Override
             public void execute(AnalysisContext context) {
-                context.getHierarchy().getImplementors(context.typeReference(typeName)).stream()
+                context.getHierarchy().getImplementors(context.reference(typeName)).stream()
                     .filter(clazz -> TypeOrigin.of(clazz) == EXTERNAL)
                     .forEach(type -> analysis.execute(type, context));
             }

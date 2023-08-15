@@ -21,7 +21,7 @@ dependencies {
 
     implementation("com.google.guava:guava:32.1.2-jre")
 
-     "pluginUnderTest"("org.jfrog.buildinfo:build-info-extractor-gradle:5.1.0")
+     "pluginUnderTest"("org.xbib.gradle.plugin:gradle-plugin-shadow:3.0.0")
 }
 
 tasks.test {

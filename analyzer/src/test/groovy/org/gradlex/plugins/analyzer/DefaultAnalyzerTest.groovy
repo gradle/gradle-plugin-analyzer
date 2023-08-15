@@ -1,5 +1,6 @@
 package org.gradlex.plugins.analyzer
 
+
 import spock.lang.Specification
 
 import java.nio.file.FileSystem
@@ -9,8 +10,8 @@ import java.nio.file.Paths
 import java.util.regex.Pattern
 import java.util.stream.Stream
 
-import static org.gradlex.plugins.analyzer.Analysis.Severity.INFO
 import static org.gradlex.plugins.analyzer.TypeSelector.externalSubtypesOf
+import static org.slf4j.event.Level.INFO
 
 class DefaultAnalyzerTest extends Specification {
     def "can detect implemented types"() {
@@ -33,6 +34,21 @@ class DefaultAnalyzerTest extends Specification {
 
         then:
         taskTypes.size() > 0
+    }
+
+    def "can show tasks that extend something other than DefaultTask"() {
+        def files = []
+
+        def pluginFiles = System.getProperty("plugin-files")
+        explode(pluginFiles, FileSystems.default).forEach(files::add)
+
+        def gradleApi = System.getProperty("gradle-api")
+        files.add(Paths.get(gradleApi))
+
+        def analyzer = new DefaultAnalyzer(files)
+
+        expect:
+        analyzer.analyze(externalSubtypesOf("Lorg/gradle/api/Task", new TaskDoesNotExtendDefaultTask()))
     }
 
     private static Stream<Path> explode(String paths, FileSystem fileSystem) {
