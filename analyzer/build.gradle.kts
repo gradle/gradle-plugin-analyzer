@@ -23,10 +23,11 @@ dependencies {
 
     implementation("com.google.guava:guava:32.1.2-jre")
 
-    "pluginUnderTest"("com.vaadin:vaadin-gradle-plugin:24.1.5")
+    "pluginUnderTest"("net.bytebuddy:byte-buddy-gradle-plugin:1.14.6")
 }
 
 tasks.test {
     systemProperty("plugin-files", project.configurations["pluginUnderTest"].files.stream().map(File::getAbsolutePath).collect(Collectors.joining(File.pathSeparator)))
     systemProperty("gradle-api", "${gradle.gradleUserHomeDir}/caches/${gradle.gradleVersion}/generated-gradle-jars/gradle-api-${gradle.gradleVersion}.jar")
+    maxHeapSize = "4096m"
 }

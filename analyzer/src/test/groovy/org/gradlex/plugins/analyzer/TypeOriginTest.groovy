@@ -12,6 +12,9 @@ class TypeOriginTest extends Specification {
         expect:
         originOf("org.gradle.BuildListener") == PUBLIC
         originOf("org.gradle.api.Action") == PUBLIC
+        originOf("org.gradle.api.Task") == PUBLIC
+        originOf("org.gradle.api.DefaultTask") == PUBLIC
+        originOf("org.gradle.api.internal.AbstractTask") == INTERNAL
         originOf("org.gradle.caching.BuildCacheKey") == PUBLIC
         originOf("org.gradle.caching.internal.DefaultBuildCacheKey") == INTERNAL
         originOf("org.gradle.cache.Cache") == INTERNAL

@@ -9,7 +9,7 @@ import java.nio.file.Paths
 import java.util.regex.Pattern
 import java.util.stream.Stream
 
-class AnalyzerTest extends Specification {
+class DefaultAnalyzerTest extends Specification {
     def "can instantiate analyzer"() {
         def files = []
 
@@ -20,7 +20,7 @@ class AnalyzerTest extends Specification {
         files.add(Paths.get(gradleApi))
 
         expect:
-        new Analyzer(files).analyze()
+        new DefaultAnalyzer(files).analyze()
     }
 
     private static Stream<Path> explode(String paths, FileSystem fileSystem) {
