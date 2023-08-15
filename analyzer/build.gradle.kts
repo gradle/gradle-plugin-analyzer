@@ -21,7 +21,7 @@ dependencies {
 
     implementation("com.google.guava:guava:32.1.2-jre")
 
-     "pluginUnderTest"("com.lightbend.akka.grpc:akka-grpc-gradle-plugin:2.3.3")
+     "pluginUnderTest"("org.jfrog.buildinfo:build-info-extractor-gradle:5.1.0")
 }
 
 tasks.test {

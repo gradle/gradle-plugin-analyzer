@@ -1,5 +1,5 @@
 package org.gradlex.plugins.analyzer;
 
 public interface Analyzer {
-    void analyze();
+    void analyze(Analysis analysis);
 }

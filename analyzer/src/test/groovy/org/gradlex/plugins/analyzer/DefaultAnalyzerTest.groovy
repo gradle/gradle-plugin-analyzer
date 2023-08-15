@@ -9,6 +9,9 @@ import java.nio.file.Paths
 import java.util.regex.Pattern
 import java.util.stream.Stream
 
+import static org.gradlex.plugins.analyzer.Analysis.Severity.INFO
+import static org.gradlex.plugins.analyzer.TypeSelector.externalSubtypesOf
+
 class DefaultAnalyzerTest extends Specification {
     def "can instantiate analyzer"() {
         def files = []
@@ -19,8 +22,12 @@ class DefaultAnalyzerTest extends Specification {
         def gradleApi = System.getProperty("gradle-api")
         files.add(Paths.get(gradleApi))
 
+        def analyzer = new DefaultAnalyzer(files)
+
         expect:
-        new DefaultAnalyzer(files).analyze()
+        analyzer.analyze(externalSubtypesOf("Lorg/gradle/api/Task", (type, context) -> {
+            context.report(INFO, "Type {} implements Task", type.getName())
+        }))
     }
 
     private static Stream<Path> explode(String paths, FileSystem fileSystem) {
