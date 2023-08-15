@@ -1,6 +1,6 @@
 package org.gradlex.plugins.analyzer
 
-
+import com.ibm.wala.classLoader.IClass
 import spock.lang.Specification
 
 import java.nio.file.FileSystem
@@ -10,7 +10,6 @@ import java.nio.file.Paths
 import java.util.regex.Pattern
 import java.util.stream.Stream
 
-import static org.gradlex.plugins.analyzer.TypeSelector.externalSubtypesOf
 import static org.slf4j.event.Level.INFO
 
 class DefaultAnalyzerTest extends Specification {
@@ -24,16 +23,19 @@ class DefaultAnalyzerTest extends Specification {
         files.add(Paths.get(gradleApi))
 
         def analyzer = new DefaultAnalyzer(files)
-        def taskTypes = []
+        def pluginTypes = []
 
         when:
-        analyzer.analyze(externalSubtypesOf("Lorg/gradle/api/Task", (type, context) -> {
-            context.report(INFO, "Type {} implements Task", type.getName())
-            taskTypes += type.name.toString()
-        }))
+        analyzer.analyze(new ExternalSubtypeAnalysis("Lorg/gradle/api/Plugin") {
+            @Override
+            protected void analyzeType(IClass type, Analysis.AnalysisContext context) {
+                context.report(INFO, "Found plugin: {}", type.getName())
+                pluginTypes += type.name.toString()
+            }
+        })
 
         then:
-        taskTypes.size() > 0
+        pluginTypes.size() > 0
     }
 
     def "can show tasks that extend something other than DefaultTask"() {
@@ -48,7 +50,7 @@ class DefaultAnalyzerTest extends Specification {
         def analyzer = new DefaultAnalyzer(files)
 
         expect:
-        analyzer.analyze(externalSubtypesOf("Lorg/gradle/api/Task", new TaskDoesNotExtendDefaultTask()))
+        analyzer.analyze(new TaskDoesNotExtendDefaultTask())
     }
 
     private static Stream<Path> explode(String paths, FileSystem fileSystem) {

@@ -1,7 +1,6 @@
 package org.gradlex.plugins.analyzer;
 
 import com.ibm.wala.classLoader.IClass;
-import org.gradlex.plugins.analyzer.Analysis.AnalysisContext;
 
 import static org.slf4j.event.Level.DEBUG;
 import static org.slf4j.event.Level.ERROR;
@@ -10,9 +9,13 @@ import static org.slf4j.event.Level.WARN;
 /**
  * Tasks should only extend {@code org.gradle.api.DefaultTask}.
  */
-public class TaskDoesNotExtendDefaultTask implements TypeAnalysis {
+public class TaskDoesNotExtendDefaultTask extends ExternalSubtypeAnalysis {
+    protected TaskDoesNotExtendDefaultTask() {
+        super("Lorg/gradle/api/Task");
+    }
+
     @Override
-    public void execute(IClass type, AnalysisContext context) {
+    protected void analyzeType(IClass type, AnalysisContext context) {
         IClass defaultTaskType = context.lookup("Lorg/gradle/api/DefaultTask");
         IClass superType = type;
         while (true) {
