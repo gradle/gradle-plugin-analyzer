@@ -1,21 +1,19 @@
 package org.gradlex.plugins.analyzer;
 
 import sootup.core.IdentifierFactory;
+import sootup.core.model.SourceType;
 import sootup.core.types.ClassType;
-import sootup.java.bytecode.inputlocation.JavaClassPathAnalysisInputLocation;
+import sootup.java.bytecode.inputlocation.JrtFileSystemAnalysisInputLocation;
+import sootup.java.bytecode.inputlocation.PathBasedAnalysisInputLocation;
 import sootup.java.core.JavaProject;
+import sootup.java.core.JavaProject.JavaProjectBuilder;
 import sootup.java.core.JavaSootClass;
 import sootup.java.core.language.JavaLanguage;
 import sootup.java.core.views.JavaView;
 
-import java.io.File;
-import java.nio.file.FileSystem;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.Optional;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 public class Analyzer {
 
@@ -23,19 +21,16 @@ public class Analyzer {
     private final IdentifierFactory identifiers;
 
     public Analyzer(Collection<Path> classpath) {
-        JavaProject project = JavaProject
+        JavaProjectBuilder builder = JavaProject
             .builder(new JavaLanguage(17))
-            .addInputLocation(new JavaClassPathAnalysisInputLocation(toClasspath(classpath)))
-            .build();
+            .addInputLocation(new JrtFileSystemAnalysisInputLocation());
+
+        classpath.forEach(entry -> builder.addInputLocation(new PathBasedAnalysisInputLocation(entry, SourceType.Application)));
+
+        JavaProject project = builder.build();
 
         this.view = project.createView();
         this.identifiers = project.getIdentifierFactory();
-    }
-
-    private static String toClasspath(Collection<Path> entries) {
-        return entries.stream()
-            .map(Path::toString)
-            .collect(Collectors.joining(File.pathSeparator));
     }
 
     void analyze() {
