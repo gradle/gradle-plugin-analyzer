@@ -10,15 +10,15 @@ import static org.gradlex.plugins.analyzer.TypeOrigin.PUBLIC
 class TypeOriginTest extends Specification {
     def "identifies packages correctly"() {
         expect:
-        originOf("org.gradle.BuildListener") == PUBLIC
-        originOf("org.gradle.api.Action") == PUBLIC
-        originOf("org.gradle.api.Task") == PUBLIC
-        originOf("org.gradle.api.DefaultTask") == PUBLIC
-        originOf("org.gradle.api.internal.AbstractTask") == INTERNAL
-        originOf("org.gradle.caching.BuildCacheKey") == PUBLIC
-        originOf("org.gradle.caching.internal.DefaultBuildCacheKey") == INTERNAL
-        originOf("org.gradle.cache.Cache") == INTERNAL
-        originOf("com.google.common.collect.ImmutableList") == EXTERNAL
+        originOf("Lorg/gradle/BuildListener") == PUBLIC
+        originOf("Lorg/gradle/api/Action") == PUBLIC
+        originOf("Lorg/gradle/api/Task") == PUBLIC
+        originOf("Lorg/gradle/api/DefaultTask") == PUBLIC
+        originOf("Lorg/gradle/api/internal/AbstractTask") == INTERNAL
+        originOf("Lorg/gradle/caching/BuildCacheKey") == PUBLIC
+        originOf("Lorg/gradle/caching/internal/DefaultBuildCacheKey") == INTERNAL
+        originOf("Lorg/gradle/cache/Cache") == INTERNAL
+        originOf("Lcom/google/common/collect/ImmutableList") == EXTERNAL
     }
 
     private static TypeOrigin originOf(String type) {
