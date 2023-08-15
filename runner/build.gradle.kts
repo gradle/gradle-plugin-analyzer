@@ -16,6 +16,3 @@ pluginAnalyzer {
         "org.xbib.gradle.plugin:gradle-plugin-shadow:3.0.0",
     ))
 }
-
-tasks.register<PluginAnalyzerTask>("analyzePlugin") {
-}
