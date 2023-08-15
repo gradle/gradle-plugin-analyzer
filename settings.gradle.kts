@@ -13,4 +13,4 @@ plugins {
 enableFeaturePreview(FeaturePreviews.Feature.TYPESAFE_PROJECT_ACCESSORS.name)
 
 rootProject.name = "plugin-analyzer"
-include("app", "list", "utilities")
+include("app", "analyzer")

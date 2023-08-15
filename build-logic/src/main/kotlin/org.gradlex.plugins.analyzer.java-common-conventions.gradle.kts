@@ -7,6 +7,7 @@
 plugins {
     // Apply the java Plugin to add support for Java.
     java
+    groovy
 }
 
 repositories {
@@ -26,7 +27,7 @@ testing {
         // Configure the built-in test suite
         val test by getting(JvmTestSuite::class) {
             // Use JUnit Jupiter test framework
-            useJUnitJupiter("5.9.2")
+            useSpock()
         }
     }
 }
