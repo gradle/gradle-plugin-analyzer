@@ -22,6 +22,8 @@ dependencies {
     }
 
     implementation("com.google.code.findbugs:jsr305:3.0.2")
+
+    testRuntimeOnly("org.slf4j:slf4j-simple:2.0.7")
 }
 
 testing {

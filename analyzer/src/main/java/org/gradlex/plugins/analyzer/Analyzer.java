@@ -9,10 +9,13 @@ import sootup.java.core.language.JavaLanguage;
 import sootup.java.core.views.JavaView;
 
 import java.io.File;
+import java.nio.file.FileSystem;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.Optional;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class Analyzer {
 

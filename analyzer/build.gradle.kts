@@ -1,3 +1,5 @@
+import java.util.stream.Collectors
+
 plugins {
     id("org.gradlex.plugins.analyzer.java-library-conventions")
 }
@@ -22,17 +24,9 @@ dependencies {
     implementation("com.google.guava:guava:32.1.2-jre")
 
     "pluginUnderTest"("com.vaadin:vaadin-gradle-plugin:24.1.5")
-
-    testRuntimeOnly("org.slf4j:slf4j-simple:2.0.7")
-}
-
-val prepareTest by tasks.register<Copy>("prepareTest") {
-    from(project.configurations["pluginUnderTest"])
-    destinationDir = project.layout.buildDirectory.dir("plugin-under-test").get().asFile
 }
 
 tasks.test {
-    dependsOn(prepareTest)
-    systemProperty("plugin-directory", prepareTest.destinationDir)
+    systemProperty("plugin-files", project.configurations["pluginUnderTest"].files.stream().map(File::getAbsolutePath).collect(Collectors.joining(File.pathSeparator)))
     systemProperty("gradle-api", "${gradle.gradleUserHomeDir}/caches/${gradle.gradleVersion}/generated-gradle-jars/gradle-api-${gradle.gradleVersion}.jar")
 }
