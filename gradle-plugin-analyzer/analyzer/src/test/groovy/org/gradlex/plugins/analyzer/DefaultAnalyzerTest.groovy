@@ -29,7 +29,7 @@ class DefaultAnalyzerTest extends Specification {
         analyzer.analyze(new ExternalSubtypeAnalysis("Lorg/gradle/api/Plugin") {
             @Override
             protected void analyzeType(IClass type, Analysis.AnalysisContext context) {
-                context.report(INFO, "Found plugin: {}", type.getName())
+                context.report(INFO, "Found plugin: " + type.name)
                 pluginTypes += type.name.toString()
             }
         })

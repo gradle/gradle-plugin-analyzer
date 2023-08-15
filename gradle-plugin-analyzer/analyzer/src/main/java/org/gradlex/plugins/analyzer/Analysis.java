@@ -15,6 +15,6 @@ public interface Analysis {
 
         IClass lookup(String name);
 
-        void report(Level level, String message, Object... args);
+        void report(Level level, String message);
     }
 }
