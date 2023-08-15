@@ -9,6 +9,6 @@ class AnalyzerTest extends Specification {
         def pluginDirectory = System.getProperty("plugin-directory")
 
         expect:
-        new Analyzer().analyze(Paths.get(pluginDirectory))
+        new Analyzer(Paths.get(pluginDirectory)).analyze()
     }
 }

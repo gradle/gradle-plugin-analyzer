@@ -19,7 +19,12 @@ import java.util.List;
 import java.util.Optional;
 
 public class Analyzer {
-    void analyze(Path directory) throws IOException {
+
+    private final Project<JavaSootClass, JavaView> project;
+    private final JavaView view;
+    private final JavaIdentifierFactory identifiers;
+
+    public Analyzer(Path directory) throws IOException {
         List<String> classpath = Files.list(directory)
             .filter(path -> path.getFileName().toString().endsWith(".jar"))
             .map(Path::toString)
@@ -33,10 +38,14 @@ public class Analyzer {
 
         JavaLanguage language = new JavaLanguage(17);
 
-        Project<JavaSootClass, JavaView> project = JavaProject.builder(language).addInputLocation(inputLocation).build();
-        JavaView view = project.createView();
+        this.project = JavaProject.builder(language).addInputLocation(inputLocation).build();
+        this.view = project.createView();
+        this.identifiers = JavaIdentifierFactory.getInstance();
+    }
 
-        ClassType classType = JavaIdentifierFactory.getInstance().getClassType("com.vaadin.gradle.VaadinCleanTask");
+    void analyze() {
+
+        ClassType classType = identifiers.getClassType("com.vaadin.gradle.VaadinCleanTask");
         while (true) {
             Optional<JavaSootClass> foundClass = view.getClass(classType);
             if (!foundClass.isPresent()) {
