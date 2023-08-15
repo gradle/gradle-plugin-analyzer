@@ -21,7 +21,7 @@ dependencies {
 
     implementation("com.google.guava:guava:32.1.2-jre")
 
-     "pluginUnderTest"("org.xbib.gradle.plugin:gradle-plugin-shadow:3.0.0")
+     "pluginUnderTest"("org.gradle.kotlin:gradle-kotlin-dsl-plugins:4.1.1")
 }
 
 tasks.test {

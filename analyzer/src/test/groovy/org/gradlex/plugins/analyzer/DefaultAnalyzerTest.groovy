@@ -50,7 +50,7 @@ class DefaultAnalyzerTest extends Specification {
         def analyzer = new DefaultAnalyzer(files)
 
         expect:
-        analyzer.analyze(new TaskDoesNotExtendDefaultTask())
+        analyzer.analyze(new TaskImplementationDoesNotExtendDefaultTask())
     }
 
     private static Stream<Path> explode(String paths, FileSystem fileSystem) {

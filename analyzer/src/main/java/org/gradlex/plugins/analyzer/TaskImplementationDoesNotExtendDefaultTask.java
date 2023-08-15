@@ -7,15 +7,19 @@ import static org.slf4j.event.Level.ERROR;
 import static org.slf4j.event.Level.WARN;
 
 /**
- * Tasks should only extend {@code org.gradle.api.DefaultTask}.
+ * Task implementations should only extend {@code org.gradle.api.DefaultTask}, not other Gradle task types.
  */
-public class TaskDoesNotExtendDefaultTask extends ExternalSubtypeAnalysis {
-    protected TaskDoesNotExtendDefaultTask() {
+public class TaskImplementationDoesNotExtendDefaultTask extends ExternalSubtypeAnalysis {
+    protected TaskImplementationDoesNotExtendDefaultTask() {
         super("Lorg/gradle/api/Task");
     }
 
     @Override
     protected void analyzeType(IClass type, AnalysisContext context) {
+        if (type.isInterface()) {
+            context.report(DEBUG, "Type {} is an interface", type.getName());
+            return;
+        }
         IClass defaultTaskType = context.lookup("Lorg/gradle/api/DefaultTask");
         IClass superType = type;
         while (true) {
