@@ -1,6 +1,5 @@
 package org.gradlex.plugins.analyzer;
 
-import com.google.common.collect.ImmutableList;
 import sootup.core.IdentifierFactory;
 import sootup.core.types.ClassType;
 import sootup.java.bytecode.inputlocation.JavaClassPathAnalysisInputLocation;
@@ -13,8 +12,8 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class Analyzer {
@@ -23,20 +22,17 @@ public class Analyzer {
     private final IdentifierFactory identifiers;
 
     public Analyzer(Path directory) throws IOException {
-        List<String> classpath;
+        String classpath;
         try (Stream<Path> files = Files.list(directory)) {
             classpath = files
                 .filter(path -> path.getFileName().toString().endsWith(".jar"))
                 .map(Path::toString)
-                .collect(ImmutableList.toImmutableList());
+                .collect(Collectors.joining(File.pathSeparator));
         }
-
-        System.out.println("Classpath:");
-        classpath.forEach(element -> System.out.printf(" - %s%n", element));
 
         JavaProject project = JavaProject
             .builder(new JavaLanguage(17))
-            .addInputLocation(new JavaClassPathAnalysisInputLocation(String.join(File.pathSeparator, classpath)))
+            .addInputLocation(new JavaClassPathAnalysisInputLocation(classpath))
             .build();
 
         this.view = project.createView();
