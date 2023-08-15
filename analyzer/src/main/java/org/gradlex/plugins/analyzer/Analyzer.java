@@ -1,5 +1,6 @@
 package org.gradlex.plugins.analyzer;
 
+import com.google.common.collect.ImmutableList;
 import sootup.core.Project;
 import sootup.core.inputlocation.AnalysisInputLocation;
 import sootup.core.types.ClassType;
@@ -14,17 +15,21 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 public class Analyzer {
     void analyze(Path directory) throws IOException {
-        String classpath = Files.list(directory)
+        List<String> classpath = Files.list(directory)
             .filter(path -> path.getFileName().toString().endsWith(".jar"))
             .map(Path::toString)
-            .collect(Collectors.joining(File.pathSeparator));
+            .collect(ImmutableList.toImmutableList());
+
+        System.out.println("Classpath:");
+        classpath.forEach(element -> System.out.printf(" - %s%n", element));
+
         AnalysisInputLocation<JavaSootClass> inputLocation =
-            new JavaClassPathAnalysisInputLocation(classpath);
+            new JavaClassPathAnalysisInputLocation(String.join(File.pathSeparator, classpath));
 
         JavaLanguage language = new JavaLanguage(17);
 
@@ -40,6 +45,11 @@ public class Analyzer {
             }
             JavaSootClass clazz = foundClass.get();
             System.out.println("Found class: " + clazz);
+
+            clazz.getMethods().forEach(method -> {
+                System.out.println(" - " + method);
+            });
+
             Optional<? extends ClassType> superclass = clazz.getSuperclass();
             if (superclass.isPresent()) {
                 classType = superclass.get();
