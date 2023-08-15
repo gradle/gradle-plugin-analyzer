@@ -20,6 +20,8 @@ dependencies {
         // Define dependency versions as constraints
         implementation("org.apache.commons:commons-text:1.10.0")
     }
+
+    implementation("com.google.code.findbugs:jsr305:3.0.2")
 }
 
 testing {

@@ -10,6 +10,7 @@ import sootup.java.core.views.JavaView;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
@@ -21,14 +22,8 @@ public class Analyzer {
     private final JavaView view;
     private final IdentifierFactory identifiers;
 
-    public Analyzer(Path directory) throws IOException {
-        String classpath;
-        try (Stream<Path> files = Files.list(directory)) {
-            classpath = files
-                .filter(path -> path.getFileName().toString().endsWith(".jar"))
-                .map(Path::toString)
-                .collect(Collectors.joining(File.pathSeparator));
-        }
+    public Analyzer(Path directory) {
+        String classpath = toClasspath(directory);
 
         JavaProject project = JavaProject
             .builder(new JavaLanguage(17))
@@ -37,6 +32,17 @@ public class Analyzer {
 
         this.view = project.createView();
         this.identifiers = project.getIdentifierFactory();
+    }
+
+    private static String toClasspath(Path directory) {
+        try (Stream<Path> files = Files.list(directory)) {
+            return files
+                .filter(path -> path.getFileName().toString().endsWith(".jar"))
+                .map(Path::toString)
+                .collect(Collectors.joining(File.pathSeparator));
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     void analyze() {
