@@ -7,6 +7,7 @@ plugins {
 
 rootProject.name = "gradle-plugin-analyzer"
 include("analyzer")
+include("plugin")
 
 enableFeaturePreview(FeaturePreviews.Feature.TYPESAFE_PROJECT_ACCESSORS.name)
 enableFeaturePreview(FeaturePreviews.Feature.STABLE_CONFIGURATION_CACHE.name)
