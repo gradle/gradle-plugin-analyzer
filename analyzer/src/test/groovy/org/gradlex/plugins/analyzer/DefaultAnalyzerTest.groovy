@@ -13,7 +13,7 @@ import static org.gradlex.plugins.analyzer.Analysis.Severity.INFO
 import static org.gradlex.plugins.analyzer.TypeSelector.externalSubtypesOf
 
 class DefaultAnalyzerTest extends Specification {
-    def "can instantiate analyzer"() {
+    def "can detect implemented types"() {
         def files = []
 
         def pluginFiles = System.getProperty("plugin-files")
@@ -23,11 +23,16 @@ class DefaultAnalyzerTest extends Specification {
         files.add(Paths.get(gradleApi))
 
         def analyzer = new DefaultAnalyzer(files)
+        def taskTypes = []
 
-        expect:
+        when:
         analyzer.analyze(externalSubtypesOf("Lorg/gradle/api/Task", (type, context) -> {
             context.report(INFO, "Type {} implements Task", type.getName())
+            taskTypes += type.name.toString()
         }))
+
+        then:
+        taskTypes.size() > 0
     }
 
     private static Stream<Path> explode(String paths, FileSystem fileSystem) {
