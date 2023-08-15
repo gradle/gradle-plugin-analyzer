@@ -27,14 +27,12 @@ dependencies {
 }
 
 val prepareTest by tasks.register<Copy>("prepareTest") {
-    val gradleApi = file("${gradle.gradleUserHomeDir}/caches/${gradle.gradleVersion}/generated-gradle-jars/gradle-api-${gradle.gradleVersion}.jar")
-
     from(project.configurations["pluginUnderTest"])
-    from(gradleApi)
     destinationDir = project.layout.buildDirectory.dir("plugin-under-test").get().asFile
 }
 
 tasks.test {
     dependsOn(prepareTest)
     systemProperty("plugin-directory", prepareTest.destinationDir)
+    systemProperty("gradle-api", "${gradle.gradleUserHomeDir}/caches/${gradle.gradleVersion}/generated-gradle-jars/gradle-api-${gradle.gradleVersion}.jar")
 }
