@@ -1,6 +1,7 @@
 package org.gradlex.plugins.analyzer;
 
 import sootup.core.IdentifierFactory;
+import sootup.core.model.SootClassMember;
 import sootup.core.model.SourceType;
 import sootup.core.types.ClassType;
 import sootup.java.bytecode.inputlocation.PathBasedAnalysisInputLocation;
@@ -9,10 +10,22 @@ import sootup.java.core.JavaProject.JavaProjectBuilder;
 import sootup.java.core.language.JavaLanguage;
 import sootup.java.core.views.JavaView;
 
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.nio.file.Path;
 import java.util.Collection;
 
 import static org.gradlex.plugins.analyzer.TypeOrigin.EXTERNAL;
+
+@Retention(RetentionPolicy.RUNTIME)
+@interface Bela {
+    String value();
+}
+
+@Retention(RetentionPolicy.RUNTIME)
+@interface Alma {
+    Bela value();
+}
 
 public class DefaultAnalyzer implements Analyzer {
 
@@ -37,6 +50,7 @@ public class DefaultAnalyzer implements Analyzer {
     }
 
     @Override
+    @Alma(@Bela("tibor"))
     public void analyze() {
 //        ArrayDeque<ClassType> queue = new ArrayDeque<>();
 //        Set<ClassType> seen = new HashSet<>();
@@ -64,10 +78,16 @@ public class DefaultAnalyzer implements Analyzer {
 //            clazz.getSuperclass().ifPresent(queue::add);
 //        }
 
-        view.getTypeHierarchy().subtypesOf(classType("org.gradle.api.Task")).stream()
-            .filter(type -> TypeOrigin.of(type) == EXTERNAL)
-            .forEach(implementor -> {
-                System.out.printf("Found external task type: %s%n", implementor);
+//        view.getTypeHierarchy().subtypesOf(classType("org.gradle.api.Task")).stream()
+        view.getClasses().stream()
+            .filter(clazz -> TypeOrigin.of(clazz.getType()) == EXTERNAL)
+            .forEach(clazz -> {
+                System.out.println("Found external task type: " + clazz.getType());
+                clazz.getMethods().stream()
+                    .filter(DefaultAnalyzer::isVisible)
+                    .forEach(method -> {
+                        System.out.println("- method: " + method);
+                    });
             });
 
         view.getTypeHierarchy().subtypesOf(classType("org.gradle.api.Plugin")).stream()
@@ -77,6 +97,10 @@ public class DefaultAnalyzer implements Analyzer {
             });
 
         System.out.println("Stored classes: " + view.getAmountOfStoredClasses());
+    }
+
+    private static boolean isVisible(SootClassMember<?> member) {
+        return member.isPublic() || member.isProtected();
     }
 
     private ClassType classType(String fqcn) {

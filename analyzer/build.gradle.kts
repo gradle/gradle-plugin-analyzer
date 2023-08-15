@@ -23,11 +23,12 @@ dependencies {
 
     implementation("com.google.guava:guava:32.1.2-jre")
 
-    "pluginUnderTest"("net.bytebuddy:byte-buddy-gradle-plugin:1.14.6")
+     "pluginUnderTest"("com.lightbend.akka.grpc:akka-grpc-gradle-plugin:2.3.3")
 }
 
 tasks.test {
     systemProperty("plugin-files", project.configurations["pluginUnderTest"].files.stream().map(File::getAbsolutePath).collect(Collectors.joining(File.pathSeparator)))
+//    systemProperty("plugin-files", tasks.compileJava.get().destinationDirectory.get().asFile.absoluteFile)
     systemProperty("gradle-api", "${gradle.gradleUserHomeDir}/caches/${gradle.gradleVersion}/generated-gradle-jars/gradle-api-${gradle.gradleVersion}.jar")
     maxHeapSize = "4096m"
 }
