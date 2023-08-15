@@ -1,109 +1,86 @@
 package org.gradlex.plugins.analyzer;
 
-import sootup.core.IdentifierFactory;
-import sootup.core.model.SootClassMember;
-import sootup.core.model.SourceType;
-import sootup.core.types.ClassType;
-import sootup.java.bytecode.inputlocation.PathBasedAnalysisInputLocation;
-import sootup.java.core.JavaProject;
-import sootup.java.core.JavaProject.JavaProjectBuilder;
-import sootup.java.core.language.JavaLanguage;
-import sootup.java.core.views.JavaView;
+import com.ibm.wala.classLoader.IClass;
+import com.ibm.wala.core.util.config.AnalysisScopeReader;
+import com.ibm.wala.ipa.callgraph.AnalysisScope;
+import com.ibm.wala.ipa.cha.ClassHierarchy;
+import com.ibm.wala.ipa.cha.ClassHierarchyException;
+import com.ibm.wala.ipa.cha.ClassHierarchyFactory;
+import com.ibm.wala.types.TypeReference;
+import com.ibm.wala.util.config.FileOfClasses;
 
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.util.ArrayDeque;
 import java.util.Collection;
+import java.util.Deque;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static org.gradlex.plugins.analyzer.TypeOrigin.EXTERNAL;
 
-@Retention(RetentionPolicy.RUNTIME)
-@interface Bela {
-    String value();
-}
-
-@Retention(RetentionPolicy.RUNTIME)
-@interface Alma {
-    Bela value();
-}
-
 public class DefaultAnalyzer implements Analyzer {
 
-    private final JavaView view;
-    private final IdentifierFactory identifiers;
+    public DefaultAnalyzer(Collection<Path> classpath) throws ClassHierarchyException, IOException {
+        AnalysisScope scope = AnalysisScopeReader.instance.makeJavaBinaryAnalysisScope(toClasspath(classpath), null);
+        scope.setExclusions(new FileOfClasses(new ByteArrayInputStream(EXCLUSIONS.getBytes(StandardCharsets.UTF_8))));
 
-    public DefaultAnalyzer(Collection<Path> classpath) {
-        JavaProjectBuilder builder = JavaProject
-            .builder(new JavaLanguage(17));
+        ClassHierarchy cha = ClassHierarchyFactory.make(scope);
 
-        // TODO Commented out because with it TypeHierarchy.subtypesOf() does not return anything
-        // builder.addInputLocation(new JrtFileSystemAnalysisInputLocation());
+        TypeReference taskTypeRef = TypeReference.find(scope.getApplicationLoader(), "Lorg/gradle/api/Task");
+        cha.getImplementors(taskTypeRef).stream()
+            .filter(clazz -> TypeOrigin.of(clazz) == EXTERNAL)
+            .forEach(taskType -> {
+                System.out.println("Found external task type: " + taskType);
+                Deque<IClass> queue = new ArrayDeque<>();
+                queue.add(taskType);
+                Set<IClass> seen = new HashSet<>();
 
-        classpath.stream()
-            .map(entry -> new PathBasedAnalysisInputLocation(entry, SourceType.Application))
-            .forEach(builder::addInputLocation);
+                while (true) {
+                    IClass type = queue.poll();
+                    if (type == null) {
+                        break;
+                    }
+                    if (!seen.add(type)) {
+                        continue;
+                    }
 
-        JavaProject project = builder.build();
+                    System.out.println(" - " + type.getName());
+                    IClass superclass = type.getSuperclass();
+                    if (superclass != null) {
+                        queue.add(superclass);
+                    }
+                    queue.addAll(type.getDirectInterfaces());
+                }
+            });
+    }
 
-        this.view = project.createView();
-        this.identifiers = project.getIdentifierFactory();
+    private static String toClasspath(Collection<Path> classpath) {
+        return classpath.stream()
+            .map(Path::toString)
+            .collect(Collectors.joining(File.pathSeparator));
     }
 
     @Override
-    @Alma(@Bela("tibor"))
     public void analyze() {
-//        ArrayDeque<ClassType> queue = new ArrayDeque<>();
-//        Set<ClassType> seen = new HashSet<>();
-//        queue.add(identifiers.getClassType("com.vaadin.gradle.VaadinCleanTask"));
-//
-//        while (!queue.isEmpty()) {
-//            ClassType classType = queue.poll();
-//            if (classType == null) {
-//                break;
-//            }
-//            if (!seen.add(classType)) {
-//                continue;
-//            }
-//
-//            Optional<JavaSootClass> foundClass = view.getClass(classType);
-//            if (foundClass.isEmpty()) {
-//                System.out.println("Cannot find class " + classType);
-//                continue;
-//            }
-//
-//            JavaSootClass clazz = foundClass.get();
-//            System.out.println("Found class: " + clazz);
-//
-//            queue.addAll(clazz.getInterfaces());
-//            clazz.getSuperclass().ifPresent(queue::add);
-//        }
-
-//        view.getTypeHierarchy().subtypesOf(classType("org.gradle.api.Task")).stream()
-        view.getClasses().stream()
-            .filter(clazz -> TypeOrigin.of(clazz.getType()) == EXTERNAL)
-            .forEach(clazz -> {
-                System.out.println("Found external task type: " + clazz.getType());
-                clazz.getMethods().stream()
-                    .filter(DefaultAnalyzer::isVisible)
-                    .forEach(method -> {
-                        System.out.println("- method: " + method);
-                    });
-            });
-
-        view.getTypeHierarchy().subtypesOf(classType("org.gradle.api.Plugin")).stream()
-            .filter(type -> TypeOrigin.of(type) == EXTERNAL)
-            .forEach(implementor -> {
-                System.out.printf("Found external plugin type: %s%n", implementor);
-            });
-
-        System.out.println("Stored classes: " + view.getAmountOfStoredClasses());
     }
 
-    private static boolean isVisible(SootClassMember<?> member) {
-        return member.isPublic() || member.isProtected();
-    }
-
-    private ClassType classType(String fqcn) {
-        return identifiers.getClassType(fqcn);
-    }
+    private static final String EXCLUSIONS = """
+        java\\/awt\\/.*
+        javax\\/swing\\/.*
+        sun\\/awt\\/.*
+        sun\\/swing\\/.*
+        com\\/sun\\/.*
+        sun\\/.*
+        org\\/netbeans\\/.*
+        org\\/openide\\/.*
+        com\\/ibm\\/crypto\\/.*
+        com\\/ibm\\/security\\/.*
+        org\\/apache\\/xerces\\/.*
+        java\\/security\\/.*
+        """;
 }

@@ -4,22 +4,20 @@ plugins {
     id("org.gradlex.plugins.analyzer.java-library-conventions")
 }
 
-val sootVersion = "1.1.2"
+val walaVersion = "1.6.2"
 
 configurations {
     create("pluginUnderTest")
 }
 
 dependencies {
-    implementation("org.soot-oss:sootup.core:${sootVersion}")
-    implementation("org.soot-oss:sootup.java.core:${sootVersion}")
-    implementation("org.soot-oss:sootup.java.sourcecode:${sootVersion}")
-    implementation("org.soot-oss:sootup.java.bytecode:${sootVersion}") {
-        exclude("com.github.ThexXTURBOXx.dex2jar", "dex-tools")
-    }
-    implementation("org.soot-oss:sootup.jimple.parser:${sootVersion}")
-    implementation("org.soot-oss:sootup.callgraph:${sootVersion}")
-    implementation("org.soot-oss:sootup.analysis:${sootVersion}")
+
+    implementation("com.ibm.wala:com.ibm.wala.shrike:${walaVersion}")
+    implementation("com.ibm.wala:com.ibm.wala.util:${walaVersion}")
+    implementation("com.ibm.wala:com.ibm.wala.core:${walaVersion}")
+    implementation("com.ibm.wala:com.ibm.wala.cast:${walaVersion}")
+    implementation("com.ibm.wala:com.ibm.wala.cast.java:${walaVersion}")
+    implementation("com.ibm.wala:com.ibm.wala.cast.java.ecj:${walaVersion}")
 
     implementation("com.google.guava:guava:32.1.2-jre")
 

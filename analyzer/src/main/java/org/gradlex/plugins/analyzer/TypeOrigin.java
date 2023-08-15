@@ -4,7 +4,8 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
-import sootup.core.types.ClassType;
+import com.ibm.wala.classLoader.IClass;
+import com.ibm.wala.types.TypeName;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -63,21 +64,20 @@ public enum TypeOrigin {
         .collect(ImmutableList.toImmutableList());
 
     private static Pattern toPackagePattern(String packageGlob) {
-        return Pattern.compile(packageGlob
+        return Pattern.compile("L" + packageGlob
             .replaceAll("\\*\\*", "###")
             .replaceAll("/\\*", "/[A-Z][a-z_A-Z0-9]+")
-            .replaceAll("/", "[.]")
             .replaceAll("###", ".*?")
         );
     }
 
-    private static final LoadingCache<ClassType, TypeOrigin> CACHE = CacheBuilder.newBuilder()
+    private static final LoadingCache<TypeName, TypeOrigin> CACHE = CacheBuilder.newBuilder()
         .build(new CacheLoader<>() {
             @Nonnull
             @Override
-            public TypeOrigin load(ClassType type) {
-                String className = type.getFullyQualifiedName();
-                if (className.startsWith("org.gradle.")) {
+            public TypeOrigin load(TypeName type) {
+                String className = type.toString();
+                if (className.startsWith("Lorg/gradle/")) {
                     if (INTERNAL_PACKAGES.stream().noneMatch(pattern -> matches(pattern, className))
                         && PUBLIC_PACKAGES.stream().anyMatch(pattern -> matches(pattern, className))) {
                         return PUBLIC;
@@ -94,7 +94,11 @@ public enum TypeOrigin {
         return pattern.matcher(packageName).matches();
     }
 
-    static TypeOrigin of(ClassType type) {
+    static TypeOrigin of(TypeName type) {
         return CACHE.getUnchecked(type);
+    }
+
+    public static TypeOrigin of(IClass clazz) {
+        return of(clazz.getName());
     }
 }

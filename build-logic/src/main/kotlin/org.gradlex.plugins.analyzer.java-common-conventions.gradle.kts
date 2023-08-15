@@ -15,6 +15,10 @@ repositories {
     gradlePluginPortal()
 }
 
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+}
+
 dependencies {
     constraints {
         // Define dependency versions as constraints

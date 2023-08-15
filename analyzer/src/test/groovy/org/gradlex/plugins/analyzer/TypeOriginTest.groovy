@@ -1,6 +1,6 @@
 package org.gradlex.plugins.analyzer
 
-import sootup.java.core.JavaIdentifierFactory
+import com.ibm.wala.types.TypeName
 import spock.lang.Specification
 
 import static org.gradlex.plugins.analyzer.TypeOrigin.EXTERNAL
@@ -22,6 +22,6 @@ class TypeOriginTest extends Specification {
     }
 
     private static TypeOrigin originOf(String type) {
-        return TypeOrigin.of(JavaIdentifierFactory.instance.getClassType(type))
+        return TypeOrigin.of(TypeName.findOrCreate(type))
     }
 }
