@@ -25,9 +25,16 @@ public class DefaultAnalyzer implements Analyzer {
     private static final Logger LOGGER = LoggerFactory.getLogger(DefaultAnalyzer.class);
 
     private final AnalysisScope scope;
+    private final Reporter reporter;
     private final ClassHierarchy hierarchy;
 
     public DefaultAnalyzer(Collection<Path> classpath) throws ClassHierarchyException, IOException {
+        this(classpath, (level, message) -> LOGGER.atLevel(level).log(message));
+    }
+
+    public DefaultAnalyzer(Collection<Path> classpath, Reporter reporter) throws ClassHierarchyException, IOException {
+        this.reporter = reporter;
+
         this.scope = AnalysisScopeReader.instance.makeJavaBinaryAnalysisScope(toClasspath(classpath), null);
         scope.setExclusions(new FileOfClasses(new ByteArrayInputStream(EXCLUSIONS.getBytes(StandardCharsets.UTF_8))));
 
@@ -65,26 +72,25 @@ public class DefaultAnalyzer implements Analyzer {
             }
 
             @Override
-            public void report(Level level, String message, Object... args) {
-                LOGGER.atLevel(level).log(message, args);
+            public void report(Level level, String message) {
+                reporter.report(level, message);
             }
         });
     }
 
-    private static final String EXCLUSIONS = """
-        java\\/awt\\/.*
-        javax\\/swing\\/.*
-        sun\\/awt\\/.*
-        sun\\/swing\\/.*
-        com\\/sun\\/.*
-        sun\\/.*
-        org\\/netbeans\\/.*
-        org\\/openide\\/.*
-        com\\/ibm\\/crypto\\/.*
-        com\\/ibm\\/security\\/.*
-        org\\/apache\\/xerces\\/.*
-        java\\/security\\/.*
-        """;
+    private static final String EXCLUSIONS =
+        "java\\/awt\\/.*\n" +
+        "javax\\/swing\\/.*\n" +
+        "sun\\/awt\\/.*\n" +
+        "sun\\/swing\\/.*\n" +
+        "com\\/sun\\/.*\n" +
+        "sun\\/.*\n" +
+        "org\\/netbeans\\/.*\n" +
+        "org\\/openide\\/.*\n" +
+        "com\\/ibm\\/crypto\\/.*\n" +
+        "com\\/ibm\\/security\\/.*\n" +
+        "org\\/apache\\/xerces\\/.*\n" +
+        "java\\/security\\/.*\n";
 
     @Override
     public String toString() {
