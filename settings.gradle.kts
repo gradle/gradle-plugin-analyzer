@@ -11,6 +11,7 @@ plugins {
 }
 
 enableFeaturePreview(FeaturePreviews.Feature.TYPESAFE_PROJECT_ACCESSORS.name)
+enableFeaturePreview(FeaturePreviews.Feature.STABLE_CONFIGURATION_CACHE.name)
 
 rootProject.name = "plugin-analyzer"
 include("app", "analyzer")
