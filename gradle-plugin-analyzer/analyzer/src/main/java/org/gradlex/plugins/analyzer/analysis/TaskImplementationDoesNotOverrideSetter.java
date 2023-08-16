@@ -2,6 +2,7 @@ package org.gradlex.plugins.analyzer.analysis;
 
 import com.ibm.wala.classLoader.IClass;
 import com.ibm.wala.classLoader.IMember;
+import com.ibm.wala.classLoader.IMethod;
 import org.gradlex.plugins.analyzer.ExternalSubtypeAnalysis;
 import org.gradlex.plugins.analyzer.TypeOrigin;
 import org.slf4j.event.Level;
@@ -32,6 +33,8 @@ public class TaskImplementationDoesNotOverrideSetter extends ExternalSubtypeAnal
             .filter(method -> method.getNumberOfParameters() == 2)
             // Setters have a name prefixed with `set`
             .filter(method -> SETTER.matcher(method.getName().toString()).matches())
+            // Ignore bridge methods
+            .filter(Predicate.not(IMethod::isBridge))
             .forEach(setter -> Stream.iterate(type.getSuperclass(), Objects::nonNull, IClass::getSuperclass)
                 .filter(TypeOrigin::isGradleApi)
                 .flatMap(clazz -> Stream.ofNullable(clazz.getMethod(setter.getSelector())))

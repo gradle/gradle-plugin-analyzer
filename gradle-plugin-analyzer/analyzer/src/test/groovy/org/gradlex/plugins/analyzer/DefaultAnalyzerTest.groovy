@@ -2,6 +2,7 @@ package org.gradlex.plugins.analyzer
 
 import com.ibm.wala.classLoader.IClass
 import org.gradlex.plugins.analyzer.analysis.TaskImplementationDoesNotExtendDefaultTask
+import org.gradlex.plugins.analyzer.analysis.TaskImplementationDoesNotOverrideSetter
 import spock.lang.Specification
 
 import java.nio.file.FileSystem
@@ -52,6 +53,21 @@ class DefaultAnalyzerTest extends Specification {
 
         expect:
         analyzer.analyze(new TaskImplementationDoesNotExtendDefaultTask())
+    }
+
+    def "can show tasks that override setters"() {
+        def files = []
+
+        def pluginFiles = System.getProperty("plugin-files")
+        explode(pluginFiles, FileSystems.default).forEach(files::add)
+
+        def gradleApi = System.getProperty("gradle-api")
+        files.add(Paths.get(gradleApi))
+
+        def analyzer = new DefaultAnalyzer(files)
+
+        expect:
+        analyzer.analyze(new TaskImplementationDoesNotOverrideSetter())
     }
 
     private static Stream<Path> explode(String paths, FileSystem fileSystem) {
