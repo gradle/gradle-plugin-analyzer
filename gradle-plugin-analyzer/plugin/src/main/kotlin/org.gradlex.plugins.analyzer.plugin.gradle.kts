@@ -12,6 +12,9 @@ open class PluginAnalyzerExtension(objects: ObjectFactory) {
 }
 
 abstract class PluginAnalyzerTask : DefaultTask() {
+    @get:Input
+    abstract val title: Property<String>
+
     @get:Classpath
     abstract val classpath: ConfigurableFileCollection
 
@@ -39,10 +42,11 @@ abstract class PluginAnalyzerTask : DefaultTask() {
         val report = reportFile.get().asFile
         report.delete()
         report.createNewFile()
+        report.appendText("## ${title.get()}\n\n")
 
         val analyzer = DefaultAnalyzer(files) { messageLevel, message ->
             if (messageLevel.toInt() >= level.get().toInt()) {
-                report.appendText("$messageLevel: $message\n")
+                report.appendText("- $messageLevel: $message\n")
             }
         }
 
@@ -63,14 +67,16 @@ abstract class PluginAnalysisCollectorTask : DefaultTask() {
         report.delete()
         report.createNewFile()
 
-        inputReports.files.forEach { inputReport ->
+        inputReports.files.toSortedSet().forEach { inputReport ->
             report.appendText(inputReport.readText())
         }
+
+        println("Plugin analysis report: " + report.absolutePath)
     }
 }
 
 val analyzePluginsTask = tasks.register<PluginAnalysisCollectorTask>("analyzePlugins") {
-    aggregateReportFile = project.layout.buildDirectory.file("plugin-analysis/aggregate-report.txt")
+    aggregateReportFile = project.layout.buildDirectory.file("plugin-analysis/aggregate-report.md")
 }
 
 val pluginAnalyzer = extensions.create<PluginAnalyzerExtension>("pluginAnalyzer")
@@ -82,9 +88,11 @@ pluginAnalyzer.plugins.all {
     dependencies.add(config.name, plugin)
 
     val task = tasks.register<PluginAnalyzerTask>("analyze_$simplifiedName") {
+        val parts = plugin.split(":")
+        title = "${parts[1]} ($plugin)"
         classpath = config
         gradleApi = project.file("${gradle.gradleUserHomeDir}/caches/${gradle.gradleVersion}/generated-gradle-jars/gradle-api-${gradle.gradleVersion}.jar")
-        reportFile = project.layout.buildDirectory.file("plugin-analysis/plugins/report-${simplifiedName}.txt")
+        reportFile = project.layout.buildDirectory.file("plugin-analysis/plugins/report-${simplifiedName}.md")
     }
 
     analyzePluginsTask.configure {
