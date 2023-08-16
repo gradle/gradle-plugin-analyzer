@@ -15,3 +15,21 @@ jobs:
 
             - name: Run build with Gradle Wrapper
               run: ./gradlew build
+
+            - name: Generate report
+              run: ./gradlew runner:analyzePlugins
+
+            - name: Convert Markdown to HTML
+              uses: jaywcjlove/markdown-to-html-cli@v3.7.0
+              with:
+                source: runner/build/plugin-analysis/aggregate-report.md
+                output: pages/plugin-analysis.html
+
+            - name: Upload GitHub pages
+              uses: actions/upload-pages-artifact@v2
+              with:
+                  path: pages
+
+            - name: Deploy to GitHub Pages
+              id: deployment
+              uses: actions/deploy-pages@v2
