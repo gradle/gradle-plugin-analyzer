@@ -4,6 +4,9 @@ import com.ibm.wala.classLoader.IClass;
 import org.gradlex.plugins.analyzer.ExternalSubtypeAnalysis;
 import org.gradlex.plugins.analyzer.TypeOrigin;
 
+import java.util.Objects;
+import java.util.stream.Stream;
+
 import static org.slf4j.event.Level.DEBUG;
 import static org.slf4j.event.Level.ERROR;
 import static org.slf4j.event.Level.WARN;
@@ -23,22 +26,20 @@ public class TaskImplementationDoesNotExtendDefaultTask extends ExternalSubtypeA
             return;
         }
         IClass defaultTaskType = context.lookup("Lorg/gradle/api/DefaultTask");
-        IClass superType = type;
-        while (true) {
-            if (superType == null) {
-                context.report(ERROR, String.format("Type %s was not a task type after all", type.getName()));
-                break;
-            }
-            TypeOrigin origin = TypeOrigin.of(superType);
-            if (origin.isGradleApi()) {
-                if (!superType.equals(defaultTaskType)) {
-                    context.report(WARN, String.format("Type %s is a task but extends %s instead of DefaultTask", type.getName(), superType.getName()));
-                } else {
-                    context.report(DEBUG, String.format("Type %s is a task and it extends DefaultTask directly", type.getName()));
-                }
-                break;
-            }
-            superType = superType.getSuperclass();
-        }
+        // Walk type hierarchy
+        Stream.iterate(type, Objects::nonNull, IClass::getSuperclass)
+            // Look for the most immediate superclass from Gradle API
+            .filter(TypeOrigin::isGradleApi)
+            .findFirst()
+            .ifPresentOrElse(
+                superType -> {
+                    if (!superType.equals(defaultTaskType)) {
+                        context.report(WARN, String.format("Type %s is a task but extends %s instead of DefaultTask", type.getName(), superType.getName()));
+                    } else {
+                        context.report(DEBUG, String.format("Type %s is a task and it extends DefaultTask directly", type.getName()));
+                    }
+                },
+                () -> context.report(ERROR, String.format("Type %s was not a task type after all", type.getName()))
+            );
     }
 }
