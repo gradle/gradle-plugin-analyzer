@@ -45,6 +45,6 @@ pluginAnalyzer {
         // TODO WALA: InvalidClassFileException: Class file invalid at 10: bad magic number: 1347093252
         // "com.github.bumptech.glide:glide:4.15.1",
 
-        "com.guardsquare:proguard-gradle:7.1.0",
+        "com.guardsquare:proguard-gradle:7.3.2",
     ))
 }
