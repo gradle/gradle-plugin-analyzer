@@ -10,6 +10,7 @@ open class PluginAnalyzerExtension(objects: ObjectFactory) {
     val plugins = objects.domainObjectSet(String::class.java)
 }
 
+@CacheableTask
 abstract class PluginAnalyzerTask : DefaultTask() {
     @get:Input
     abstract val title: Property<String>
@@ -54,8 +55,10 @@ abstract class PluginAnalyzerTask : DefaultTask() {
     }
 }
 
+@CacheableTask
 abstract class PluginAnalysisCollectorTask : DefaultTask() {
     @get:InputFiles
+    @get:PathSensitive(PathSensitivity.NONE)
     abstract val inputReports: ConfigurableFileCollection
 
     @get:OutputFile
