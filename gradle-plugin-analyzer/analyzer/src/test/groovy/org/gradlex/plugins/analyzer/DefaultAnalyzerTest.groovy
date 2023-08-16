@@ -1,6 +1,7 @@
 package org.gradlex.plugins.analyzer
 
 import com.ibm.wala.classLoader.IClass
+import org.gradlex.plugins.analyzer.analysis.TaskImplementationDoesNotExtendDefaultTask
 import spock.lang.Specification
 
 import java.nio.file.FileSystem

@@ -15,6 +15,7 @@ import java.util.stream.Stream;
 public enum TypeOrigin {
     PUBLIC(true),
     INTERNAL(true),
+    RUNTIME(false),
     EXTERNAL(false);
 
     private static final List<Pattern> PUBLIC_PACKAGES = Stream.of(
@@ -78,13 +79,19 @@ public enum TypeOrigin {
             @Override
             public TypeOrigin load(TypeName type) {
                 String className = type.toString();
-                if (className.startsWith("Lorg/gradle/")) {
+                if (className.startsWith("Lorg/gradle/") || className.startsWith("Lnet/rubygrapefruit/")) {
                     if (INTERNAL_PACKAGES.stream().noneMatch(pattern -> matches(pattern, className))
                         && PUBLIC_PACKAGES.stream().anyMatch(pattern -> matches(pattern, className))) {
                         return PUBLIC;
                     } else {
                         return INTERNAL;
                     }
+                } else if (
+                    className.startsWith("Ljava/") || className.startsWith("Ljavax/") || className.startsWith("Ljdk/")
+                    || className.startsWith("Lgroovy/") || className.startsWith("Lorg/codehaus/groovy/")
+                    || className.startsWith("Lkotlin/")
+                ) {
+                    return RUNTIME;
                 } else {
                     return EXTERNAL;
                 }

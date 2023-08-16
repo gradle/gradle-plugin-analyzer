@@ -34,7 +34,7 @@ dependencies {
 
     implementation("com.google.guava:guava:32.1.2-jre")
 
-     "pluginUnderTest"("org.gradle.kotlin:gradle-kotlin-dsl-plugins:4.1.1")
+     "pluginUnderTest"("io.freefair.gradle:lombok-plugin:8.2.2")
 }
 
 testing {

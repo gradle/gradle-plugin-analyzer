@@ -1,6 +1,8 @@
-package org.gradlex.plugins.analyzer;
+package org.gradlex.plugins.analyzer.analysis;
 
 import com.ibm.wala.classLoader.IClass;
+import org.gradlex.plugins.analyzer.ExternalSubtypeAnalysis;
+import org.gradlex.plugins.analyzer.TypeOrigin;
 
 import static org.slf4j.event.Level.DEBUG;
 import static org.slf4j.event.Level.ERROR;

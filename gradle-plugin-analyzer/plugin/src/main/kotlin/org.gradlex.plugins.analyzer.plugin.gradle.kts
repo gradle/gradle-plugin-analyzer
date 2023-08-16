@@ -1,5 +1,5 @@
 import org.gradlex.plugins.analyzer.DefaultAnalyzer
-import org.gradlex.plugins.analyzer.TaskImplementationDoesNotExtendDefaultTask
+import org.gradlex.plugins.analyzer.analysis.TaskImplementationDoesNotExtendDefaultTask
 import org.slf4j.event.Level
 import java.nio.file.Path
 
