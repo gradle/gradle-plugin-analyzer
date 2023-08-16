@@ -1,5 +1,6 @@
 package org.gradlex.plugins.analyzer.analysis
 
+import com.google.common.collect.ImmutableList
 import org.codehaus.groovy.control.CompilerConfiguration
 import org.gradlex.plugins.analyzer.Analyzer
 import org.gradlex.plugins.analyzer.DefaultAnalyzer
@@ -33,5 +34,9 @@ class AbstractAnalysisSpec extends Specification {
         analyzer = new DefaultAnalyzer(files, { level, message ->
             reports += "$level: $message" as String
         })
+    }
+
+    protected List<String> getReports() {
+        ImmutableList.sortedCopyOf(reports)
     }
 }
