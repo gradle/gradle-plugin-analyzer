@@ -4,10 +4,6 @@ import org.gradlex.plugins.analyzer.analysis.TaskImplementationDoesNotOverrideSe
 import org.slf4j.event.Level
 import java.nio.file.Path
 
-plugins {
-    base
-}
-
 open class PluginAnalyzerExtension(objects: ObjectFactory) {
     val plugins = objects.domainObjectSet(String::class.java)
 }
@@ -100,8 +96,4 @@ pluginAnalyzer.plugins.all {
     analyzePluginsTask.configure {
         inputReports.from(task.flatMap { it.reportFile })
     }
-}
-
-tasks.named("check").configure {
-    dependsOn(analyzePluginsTask)
 }
