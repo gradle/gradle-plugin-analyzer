@@ -35,8 +35,11 @@ public class TaskImplementationDoesNotOverrideSetter extends ExternalSubtypeAnal
             .filter(method -> SETTER.matcher(method.getName().toString()).matches())
             // Ignore bridge methods
             .filter(Predicate.not(IMethod::isBridge))
+            // Walk ancestry
             .forEach(setter -> Stream.iterate(type.getSuperclass(), Objects::nonNull, IClass::getSuperclass)
+                // We only care about methods that come from the Gradle API
                 .filter(TypeOrigin::isGradleApi)
+                // Find the same method in the superclass
                 .flatMap(clazz -> Stream.ofNullable(clazz.getMethod(setter.getSelector())))
                 .findFirst()
                 .ifPresent(overriddenMethod -> context.report(Level.WARN, String.format("Setter %s() in %s overrides Gradle API from %s",
