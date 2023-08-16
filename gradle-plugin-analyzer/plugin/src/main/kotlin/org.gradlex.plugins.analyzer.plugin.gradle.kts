@@ -1,5 +1,6 @@
 import org.gradlex.plugins.analyzer.DefaultAnalyzer
 import org.gradlex.plugins.analyzer.analysis.TaskImplementationDoesNotExtendDefaultTask
+import org.gradlex.plugins.analyzer.analysis.TaskImplementationDoesNotOverrideSetter
 import org.slf4j.event.Level
 import java.nio.file.Path
 
@@ -51,6 +52,7 @@ abstract class PluginAnalyzerTask : DefaultTask() {
         }
 
         analyzer.analyze(TaskImplementationDoesNotExtendDefaultTask())
+        analyzer.analyze(TaskImplementationDoesNotOverrideSetter())
     }
 }
 

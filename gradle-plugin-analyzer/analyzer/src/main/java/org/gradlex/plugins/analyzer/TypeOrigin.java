@@ -117,4 +117,12 @@ public enum TypeOrigin {
     TypeOrigin(boolean gradleApi) {
         this.gradleApi = gradleApi;
     }
+
+    public static boolean isGradleApi(IClass clazz) {
+        return of(clazz).isGradleApi();
+    }
+
+    public static boolean isExternal(IClass clazz) {
+        return of(clazz) == EXTERNAL;
+    }
 }

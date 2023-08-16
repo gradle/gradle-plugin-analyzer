@@ -2,8 +2,6 @@ package org.gradlex.plugins.analyzer;
 
 import com.ibm.wala.classLoader.IClass;
 
-import static org.gradlex.plugins.analyzer.TypeOrigin.EXTERNAL;
-
 public abstract class ExternalSubtypeAnalysis implements Analysis {
     private final String typeName;
 
@@ -14,7 +12,7 @@ public abstract class ExternalSubtypeAnalysis implements Analysis {
     @Override
     public void execute(AnalysisContext context) {
         context.getHierarchy().getImplementors(context.reference(typeName)).stream()
-            .filter(clazz -> TypeOrigin.of(clazz) == EXTERNAL)
+            .filter(TypeOrigin::isExternal)
             .forEach(type -> analyzeType(type, context));
     }
 
