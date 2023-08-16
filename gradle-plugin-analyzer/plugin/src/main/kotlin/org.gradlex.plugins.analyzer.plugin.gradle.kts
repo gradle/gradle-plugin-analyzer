@@ -1,3 +1,5 @@
+import org.gradle.api.internal.project.ProjectInternal
+import org.gradle.api.plugins.jvm.internal.JvmPluginServices
 import org.gradlex.plugins.analyzer.DefaultAnalyzer
 import org.gradlex.plugins.analyzer.analysis.TaskImplementationDoesNotExtendDefaultTask
 import org.gradlex.plugins.analyzer.analysis.TaskImplementationDoesNotOverrideSetter
@@ -83,6 +85,8 @@ pluginAnalyzer.plugins.all {
     val plugin = this
     val simplifiedName = plugin.replace(':', '_').replace('.', '_')
     val config = configurations.create("conf_$simplifiedName")
+    // Magic by Justin
+    (project as ProjectInternal).services.get(JvmPluginServices::class.java).configureAsRuntimeClasspath(config)
     dependencies.add(config.name, plugin)
 
     val task = tasks.register<PluginAnalyzerTask>("analyze_$simplifiedName") {

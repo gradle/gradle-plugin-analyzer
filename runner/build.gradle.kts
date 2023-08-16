@@ -18,8 +18,7 @@ pluginAnalyzer {
 
         // From popular plugins – https://docs.google.com/spreadsheets/d/1p-soKHdFdYyrrmokHXg9ug03hK4VoU8oAo7g28Knels/edit#gid=456456660
         "com.google.dagger:hilt-android-gradle-plugin:2.47",
-        // TODO Shadow plugin has a problem with matching attributes
-        // "com.github.johnrengelman:shadow:8.1.1",
+        "com.github.johnrengelman:shadow:8.1.1",
         "com.github.ben-manes:gradle-versions-plugin:0.47.0",
         "org.sonarsource.scanner.gradle:sonarqube-gradle-plugin:4.3.0.3225",
         "com.diffplug.spotless:spotless-plugin-gradle:6.20.0",
@@ -35,8 +34,7 @@ pluginAnalyzer {
         // "com.google.cloud.tools:jib-gradle-plugin:3.3.2",
         "com.google.protobuf:protobuf-gradle-plugin:0.9.4",
         "org.owasp:dependency-check-gradle:8.3.1",
-        // TODO Could not resolve com.github.ben-manes.caffeine:caffeine:2.9.3 (because of shadow)
-        // "org.openapitools:openapi-generator-gradle-plugin:7.0.0-beta",
+         "org.openapitools:openapi-generator-gradle-plugin:7.0.0-beta",
         // TODO Is this the correct one for firebase?
         "com.google.gms:google-services:4.3.15",
         "com.palantir.gradle.docker:gradle-docker:0.35.0",
