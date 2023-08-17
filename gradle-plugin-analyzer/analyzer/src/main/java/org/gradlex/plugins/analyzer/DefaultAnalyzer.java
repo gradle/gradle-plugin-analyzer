@@ -1,5 +1,6 @@
 package org.gradlex.plugins.analyzer;
 
+import com.ibm.wala.classLoader.BinaryDirectoryTreeModule;
 import com.ibm.wala.classLoader.IClass;
 import com.ibm.wala.core.util.config.AnalysisScopeReader;
 import com.ibm.wala.ipa.callgraph.AnalysisScope;
@@ -19,6 +20,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.jar.JarFile;
@@ -43,20 +45,22 @@ public class DefaultAnalyzer implements Analyzer {
     @Nonnull
     private static AnalysisScope createScope(Collection<Path> classpath) throws IOException {
         AnalysisScope scope = AnalysisScopeReader.instance.makePrimordialScope(null);
-        ClassLoaderReference applicationLoader = scope.getLoader(AnalysisScope.APPLICATION);
-        classpath.stream()
-            .map(DefaultAnalyzer::toJarFile)
-            .forEach(jarFile -> scope.addToScope(applicationLoader, jarFile));
+        classpath.forEach(path -> addToScope(scope, path));
         scope.setExclusions(new FileOfClasses(new ByteArrayInputStream(EXCLUSIONS.getBytes(StandardCharsets.UTF_8))));
         return scope;
     }
 
-    @Nonnull
-    private static JarFile toJarFile(Path path) {
-        try {
-            return new JarFile(path.toFile(), false);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
+    private static void addToScope(AnalysisScope scope, Path path) {
+        ClassLoaderReference loader = scope.getLoader(AnalysisScope.APPLICATION);
+        if (Files.isRegularFile(path)) {
+            try {
+                JarFile jar = new JarFile(path.toFile(), false);
+                scope.addToScope(loader, jar);
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        } else {
+            scope.addToScope(loader, new BinaryDirectoryTreeModule(path.toFile()));
         }
     }
 
