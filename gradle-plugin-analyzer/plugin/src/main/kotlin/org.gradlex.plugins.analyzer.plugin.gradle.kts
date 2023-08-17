@@ -1,19 +1,38 @@
 import org.gradle.api.internal.project.ProjectInternal
 import org.gradle.api.plugins.jvm.internal.JvmPluginServices
+import org.gradle.internal.Actions
 import org.gradlex.plugins.analyzer.DefaultAnalyzer
 import org.gradlex.plugins.analyzer.analysis.TaskImplementationDoesNotExtendDefaultTask
 import org.gradlex.plugins.analyzer.analysis.TaskImplementationDoesNotOverrideSetter
 import org.slf4j.event.Level
 import java.nio.file.Path
 
+open class AnalyzedPlugin(@get:Input val artifact: String) : Comparable<AnalyzedPlugin>, Named {
+
+    @get:Input
+    var title: String = artifact
+
+    @get:Input
+    var configurator: Action<in Configuration> = Actions.doNothing()
+
+    @Internal
+    override fun getName() = artifact
+
+    override fun compareTo(other: AnalyzedPlugin) = artifact.compareTo(other.artifact)
+}
+
 open class PluginAnalyzerExtension(objects: ObjectFactory) {
-    val plugins = objects.domainObjectSet(String::class.java)
+    val analyzedPlugins = objects.domainObjectContainer(AnalyzedPlugin::class.java)
+
+    fun plugin(artifact: String, configuration: Action<in AnalyzedPlugin> = Actions.doNothing()) {
+        analyzedPlugins.create(artifact, configuration)
+    }
 }
 
 @CacheableTask
 abstract class PluginAnalyzerTask : DefaultTask() {
-    @get:Input
-    abstract val title: Property<String>
+    @get:Nested
+    abstract val plugin: Property<AnalyzedPlugin>
 
     @get:Classpath
     abstract val classpath: ConfigurableFileCollection
@@ -42,7 +61,7 @@ abstract class PluginAnalyzerTask : DefaultTask() {
         val report = reportFile.get().asFile
         report.delete()
         report.createNewFile()
-        report.appendText("## ${title.get()}\n\n")
+        report.appendText("## ${plugin.get().title}\n\n")
 
         val analyzer = DefaultAnalyzer(files) { messageLevel, message ->
             if (messageLevel.toInt() >= level.get().toInt()) {
@@ -84,17 +103,17 @@ val analyzePluginsTask = tasks.register<PluginAnalysisCollectorTask>("analyzePlu
 
 val pluginAnalyzer = extensions.create<PluginAnalyzerExtension>("pluginAnalyzer")
 
-pluginAnalyzer.plugins.all {
-    val plugin = this
-    val simplifiedName = plugin.replace(':', '_').replace('.', '_')
+pluginAnalyzer.analyzedPlugins.all {
+    val analyzedPlugin = this
+    val simplifiedName = analyzedPlugin.artifact.replace(':', '_').replace('.', '_')
     val config = configurations.create("conf_$simplifiedName")
     // Magic by Justin
     (project as ProjectInternal).services.get(JvmPluginServices::class.java).configureAsRuntimeClasspath(config)
-    dependencies.add(config.name, plugin)
+    analyzedPlugin.configurator.execute(config)
+    dependencies.add(config.name, analyzedPlugin.artifact)
 
     val task = tasks.register<PluginAnalyzerTask>("analyze_$simplifiedName") {
-        val parts = plugin.split(":")
-        title = "${parts[1]} ($plugin)"
+        plugin = analyzedPlugin
         classpath = config
         gradleApi = project.file("${gradle.gradleUserHomeDir}/caches/${gradle.gradleVersion}/generated-gradle-jars/gradle-api-${gradle.gradleVersion}.jar")
         reportFile = project.layout.buildDirectory.file("plugin-analysis/plugins/report-${simplifiedName}.md")
