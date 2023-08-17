@@ -54,6 +54,5 @@ pluginAnalyzer {
     plugin("com.palantir.gradle.docker:gradle-docker:0.35.0")
     plugin("org.ajoberstar.grgit:grgit-gradle:5.0.0-rc.3")
     plugin("com.adarshr:gradle-test-logger-plugin:3.2.0")
-    // plugin("com.github.bumptech.glide:glide:4.15.1")
     plugin("com.guardsquare:proguard-gradle:7.3.2")
 }
