@@ -1,5 +1,3 @@
-import Org_gradlex_plugins_analyzer_plugin_gradle.PluginAnalyzerTask
-
 plugins {
     id("org.gradlex.plugins.analyzer.plugin")
 }
@@ -22,13 +20,22 @@ pluginAnalyzer {
     plugin("org.sonarsource.scanner.gradle:sonarqube-gradle-plugin:4.3.0.3225")
     plugin("com.diffplug.spotless:spotless-plugin-gradle:6.20.0")
     // TODO Misses gradle-api:8.0.1.ja)r
-    // plugin("de.undercouch:gradle-download-task:5.4.0")
+//    plugin("de.undercouch:gradle-download-task:5.4.0") {
+//        attribute(Bundling.BUNDLING_ATTRIBUTE, objects.named(Bundling::class.java, Bundling.SHADOWED))
+//    }
     plugin("gradle.plugin.org.flywaydb:gradle-plugin-publishing:9.21.1")
     plugin("com.github.spotbugs.snom:spotbugs-gradle-plugin:6.0.0-beta.3")
     plugin("io.freefair.gradle:lombok-plugin:8.2.2")
     plugin("org.jfrog.buildinfo:build-info-extractor-gradle:5.1.0")
-    // TODO Misses gradle-api-7.0.ja)r
-    // plugin("com.gorylenko.gradle-git-properties:gradle-git-properties:2.4.1")
+    // TODO Misses gradle-api-7.0.jar
+    plugin("com.gorylenko.gradle-git-properties:gradle-git-properties:2.4.1") {
+        val shadowed = objects.named(Bundling::class.java, Bundling.SHADOWED)
+        configuration {
+            attributes {
+                attribute(Bundling.BUNDLING_ATTRIBUTE, shadowed)
+            }
+        }
+    }
     // TODO Could not find com.fasterxml.jackson.core:jackson-databind:).
     // plugin("com.google.cloud.tools:jib-gradle-plugin:3.3.2")
     plugin("com.google.protobuf:protobuf-gradle-plugin:0.9.4")
