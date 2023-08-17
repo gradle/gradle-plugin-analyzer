@@ -6,6 +6,7 @@ import com.ibm.wala.ipa.callgraph.AnalysisScope;
 import com.ibm.wala.ipa.cha.ClassHierarchy;
 import com.ibm.wala.ipa.cha.ClassHierarchyException;
 import com.ibm.wala.ipa.cha.ClassHierarchyFactory;
+import com.ibm.wala.types.ClassLoaderReference;
 import com.ibm.wala.types.TypeReference;
 import com.ibm.wala.util.config.FileOfClasses;
 import org.gradlex.plugins.analyzer.Analysis.AnalysisContext;
@@ -13,13 +14,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.event.Level;
 
+import javax.annotation.Nonnull;
 import java.io.ByteArrayInputStream;
-import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Collection;
-import java.util.stream.Collectors;
+import java.util.jar.JarFile;
 
 public class DefaultAnalyzer implements Analyzer {
     private static final Logger LOGGER = LoggerFactory.getLogger(DefaultAnalyzer.class);
@@ -34,19 +36,28 @@ public class DefaultAnalyzer implements Analyzer {
 
     public DefaultAnalyzer(Collection<Path> classpath, Reporter reporter) throws ClassHierarchyException, IOException {
         this.reporter = reporter;
-
-        this.scope = AnalysisScopeReader.instance.makeJavaBinaryAnalysisScope(toClasspath(classpath), null);
-        scope.setExclusions(new FileOfClasses(new ByteArrayInputStream(EXCLUSIONS.getBytes(StandardCharsets.UTF_8))));
-
-        this.hierarchy = ClassHierarchyFactory.make(scope);
+        this.scope = createScope(classpath);
+        this.hierarchy = ClassHierarchyFactory.make(createScope(classpath));
     }
 
-    private static String toClasspath(Collection<Path> classpath) {
-        return classpath.stream()
-            .map(Path::normalize)
-            .distinct()
-            .map(Path::toString)
-            .collect(Collectors.joining(File.pathSeparator));
+    @Nonnull
+    private static AnalysisScope createScope(Collection<Path> classpath) throws IOException {
+        AnalysisScope scope = AnalysisScopeReader.instance.makePrimordialScope(null);
+        ClassLoaderReference applicationLoader = scope.getLoader(AnalysisScope.APPLICATION);
+        classpath.stream()
+            .map(DefaultAnalyzer::toJarFile)
+            .forEach(jarFile -> scope.addToScope(applicationLoader, jarFile));
+        scope.setExclusions(new FileOfClasses(new ByteArrayInputStream(EXCLUSIONS.getBytes(StandardCharsets.UTF_8))));
+        return scope;
+    }
+
+    @Nonnull
+    private static JarFile toJarFile(Path path) {
+        try {
+            return new JarFile(path.toFile(), false);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     @Override
