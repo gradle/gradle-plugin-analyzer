@@ -238,10 +238,11 @@ afterEvaluate {
  * Use the same request attribute that Gradle will use to resolve the plugin classpath, as defined by:
  * [Link](https://github.com/gradle/gradle/blob/master/subprojects/core/src/main/java/org/gradle/api/internal/initialization/DefaultScriptClassPathResolver.java#L52-L67)
  *
- * Note, that by setting the `TargetJvmVersion` attribute, we restrict this build to be run on a Java version
- * greater than or equal to the maximum target Java version of all plugins that we resolve.
- * In this case, setting that attribute requires this build to be executed on Java 17 at the minimum.
- * We _could_ remove this attribute, in which case, the variant with the highest Java version will be selected.
+ * Note, that Gradle also sets the `TargetJvmVersion` attribute to the version of the JVM that this build is
+ * running on. However, this would restrict the analyzer plugin to only resolve plugins that have a target Java
+ * version less than or equal to the current JVM version.
+ * Since the analyzer logic can seemingly run on a lower JVM version than the plugins that it analyzes,
+ * we deviate from the conventional attributes by not setting the target JVM attribute.
  */
 fun configureRequestAttributes(config: Configuration) {
     config.attributes {
@@ -249,7 +250,6 @@ fun configureRequestAttributes(config: Configuration) {
         attributes.attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category::class.java, Category.LIBRARY))
         attributes.attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(LibraryElements::class.java, LibraryElements.JAR))
         attributes.attribute(Bundling.BUNDLING_ATTRIBUTE, objects.named(Bundling::class.java, Bundling.EXTERNAL))
-        attributes.attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, JavaVersion.current().majorVersion.toInt())
         attributes.attribute(GradlePluginApiVersion.GRADLE_PLUGIN_API_VERSION_ATTRIBUTE, objects.named(GradlePluginApiVersion::class.java, GradleVersion.current().version))
     }
 }
