@@ -1,10 +1,6 @@
-import com.google.common.collect.ArrayListMultimap
-import com.google.common.collect.Multimap
 import com.google.common.collect.MultimapBuilder
-import com.google.common.collect.Multimaps
 import org.gradle.api.internal.lambdas.SerializableLambdas
 import org.gradle.api.internal.project.ProjectInternal
-import org.gradle.api.internal.provider.DefaultProvider
 import org.gradle.api.plugins.jvm.internal.JvmPluginServices
 import org.gradle.internal.Actions
 import org.gradlex.plugins.analyzer.DefaultAnalyzer
@@ -23,18 +19,9 @@ import kotlin.streams.toList
 
 open class AnalyzedPlugin(val pluginId: String) : Comparable<AnalyzedPlugin>, Named, Serializable {
 
-    private var _artifact: String? = null
+    var artifact: String? = null
 
-    var artifact: String
-        get() {
-            if (_artifact == null) {
-                _artifact = Util.findArtifact(pluginId)
-            }
-            return _artifact!!
-        }
-        set(artifact) {
-            _artifact = artifact
-        }
+    var sourceUrl: String? = null
 
     internal var shadowed = false
 
@@ -68,6 +55,10 @@ abstract class PluginAnalyzerTask : DefaultTask() {
     @get:Input
     abstract val pluginArtifact: Property<String>
 
+    @get:Input
+    @get:Optional
+    abstract val pluginSourceUrl: Property<String>
+
     @get:Classpath
     abstract val classpath: ConfigurableFileCollection
 
@@ -95,7 +86,7 @@ abstract class PluginAnalyzerTask : DefaultTask() {
         val report = reportFile.get().asFile
         report.delete()
         report.createNewFile()
-        report.appendText("## ${pluginArtifact.get()}\n\n")
+        report.appendText("## ${formatPlugin(pluginArtifact.get(), pluginSourceUrl.orNull)}\n\n")
         report.appendText("Plugin IDs: `${pluginIds.get().joinToString("`, `")}`\n\n")
 
         val analyzer = DefaultAnalyzer(files) { messageLevel, message ->
@@ -106,6 +97,15 @@ abstract class PluginAnalyzerTask : DefaultTask() {
 
         analyzer.analyze(TaskImplementationDoesNotExtendDefaultTask())
         analyzer.analyze(TaskImplementationDoesNotOverrideSetter())
+    }
+
+    fun formatPlugin(artifact: String, sourceUrl: String?): String {
+        val title = "`${artifact}`"
+        if (sourceUrl != null) {
+            return "[$title](${sourceUrl})"
+        } else {
+            return title
+        }
     }
 }
 
@@ -132,8 +132,12 @@ abstract class PluginAnalysisCollectorTask : DefaultTask() {
     }
 }
 
+open class PluginInfo(val artifact: String, val sourceUrl: String?) : Comparable<PluginInfo> {
+    override fun compareTo(other: PluginInfo) = artifact.compareTo(other.artifact)
+}
+
 companion object Util {
-    fun findArtifact(pluginId: String): String {
+    fun lookupPlugin(pluginId: String): PluginInfo {
         val client = HttpClient.newHttpClient()
 
         // Create an HttpRequest using the source ID
@@ -150,22 +154,26 @@ companion object Util {
         // Find the <pre> tag
         val preElement = document.select("#kotlin-usage > pre:nth-child(4)").first()
 
+        val artifact: String
         if (preElement != null) {
             val kotlinCode = preElement.text()
 
             val gavRegex = """classpath\("(.+?)"\)""".toRegex()
             val gavMatch = gavRegex.find(kotlinCode)
 
-            if (gavMatch != null) {
-                val artifact = gavMatch.groupValues[1]
-                println("Analyzing plugin ${pluginId} with artifact '${artifact}'")
-                return artifact
-            } else {
+            if (gavMatch == null) {
                 throw RuntimeException("No target ID found for source ID $pluginId")
             }
+            artifact = gavMatch.groupValues[1]
+            println("Analyzing plugin ${pluginId} with artifact '${artifact}'")
         } else {
             throw RuntimeException("No <pre> tag found for source ID $pluginId")
         }
+
+        val sourceUrlElement = document.select("#content > div > div.row.plugin-detail.box > div.detail > p > a").first()
+        val sourceUrl = sourceUrlElement?.attr("href")
+
+        return PluginInfo(artifact, sourceUrl)
     }
 }
 
@@ -177,23 +185,35 @@ val pluginAnalyzer = extensions.create<PluginAnalyzerExtension>("pluginAnalyzer"
 
 afterEvaluate {
     // Resolve artifacts
-    val deferredResults = pluginAnalyzer.analyzedPlugins.stream()
+    val pluginInfoFutures = pluginAnalyzer.analyzedPlugins.stream()
         .map { analyzedPlugin ->
-            CompletableFuture.supplyAsync {
-                analyzedPlugin.artifact
+            val artifact: String? = analyzedPlugin.artifact
+            if (artifact == null) {
+                CompletableFuture.supplyAsync {
+                    val info = Util.lookupPlugin(analyzedPlugin.pluginId)
+                    analyzedPlugin.artifact = info.artifact
+                    Pair(info, analyzedPlugin)
+                }
+            } else {
+                CompletableFuture.completedFuture(Pair(PluginInfo(artifact, null), analyzedPlugin))
             }
         }
         .toList()
-    CompletableFuture.allOf(*deferredResults.toTypedArray()).join()
+    CompletableFuture.allOf(*pluginInfoFutures.toTypedArray()).join()
 
-    val analyzedPlugins = MultimapBuilder.treeKeys().arrayListValues().build<String, AnalyzedPlugin>()
+    val analyzedPlugins = MultimapBuilder.treeKeys().arrayListValues().build<PluginInfo, AnalyzedPlugin>()
+    pluginInfoFutures.forEach {
+        val pluginInfo = it.get().first
+        val plugin = it.get().second
+        analyzedPlugins.put(pluginInfo, plugin)
+    }
+
     pluginAnalyzer.analyzedPlugins.forEach { analyzedPlugin ->
-        analyzedPlugins.put(analyzedPlugin.artifact, analyzedPlugin)
     }
 
     // Must run in afterEvaluate to get the actual configuration of the elements in the container; all() triggers too early
-    analyzedPlugins.asMap().forEach { artifact, plugins ->
-        val simplifiedName = artifact.replace(':', '_').replace('.', '_')
+    analyzedPlugins.asMap().forEach { info, plugins ->
+        val simplifiedName = info.artifact.replace(':', '_').replace('.', '_')
         val config = configurations.create("conf_$simplifiedName")
         // Magic by Justin
         (project as ProjectInternal).services.get(JvmPluginServices::class.java).configureAsRuntimeClasspath(config)
@@ -201,11 +221,12 @@ afterEvaluate {
             config.attributes.attribute(Bundling.BUNDLING_ATTRIBUTE, objects.named(Bundling.SHADOWED))
         }
         plugins.forEach { it.configurator.execute(config) }
-        dependencies.add(config.name, artifact)
+        dependencies.add(config.name, info.artifact)
 
         val task = tasks.register<PluginAnalyzerTask>("analyze_$simplifiedName") {
             pluginIds = plugins.map { it.pluginId }
-            pluginArtifact = artifact
+            pluginArtifact = info.artifact
+            pluginSourceUrl = info.sourceUrl
             classpath = config
             gradleApi = project.file("${gradle.gradleUserHomeDir}/caches/${gradle.gradleVersion}/generated-gradle-jars/gradle-api-${gradle.gradleVersion}.jar")
             reportFile = project.layout.buildDirectory.file("plugin-analysis/plugins/report-${simplifiedName}.md")
