@@ -16,7 +16,7 @@ class TaskImplementationDoesNotOverrideSetterTest extends AbstractAnalysisSpec {
 
         then:
         reports == [
-            "WARN: Setter setEnabled() in LCustomTask overrides Gradle API from Lorg/gradle/api/DefaultTask"
+            "WARN: The setter setEnabled() in LCustomTask overrides Gradle API from Lorg/gradle/api/DefaultTask"
         ]
     }
 }
