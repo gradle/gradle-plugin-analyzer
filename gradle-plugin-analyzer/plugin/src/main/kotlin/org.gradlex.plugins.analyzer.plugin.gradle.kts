@@ -1,3 +1,7 @@
+import com.google.common.collect.ArrayListMultimap
+import com.google.common.collect.Multimap
+import com.google.common.collect.MultimapBuilder
+import com.google.common.collect.Multimaps
 import org.gradle.api.internal.lambdas.SerializableLambdas
 import org.gradle.api.internal.project.ProjectInternal
 import org.gradle.api.internal.provider.DefaultProvider
@@ -59,7 +63,7 @@ open class PluginAnalyzerExtension(objects: ObjectFactory) : Serializable {
 @CacheableTask
 abstract class PluginAnalyzerTask : DefaultTask() {
     @get:Input
-    abstract val pluginId: Property<String>
+    abstract val pluginIds: ListProperty<String>
 
     @get:Input
     abstract val pluginArtifact: Property<String>
@@ -91,8 +95,8 @@ abstract class PluginAnalyzerTask : DefaultTask() {
         val report = reportFile.get().asFile
         report.delete()
         report.createNewFile()
-        report.appendText("## ${pluginId.get()}\n\n")
-        report.appendText("Artifact: `${pluginArtifact.get()}`\n\n")
+        report.appendText("## ${pluginArtifact.get()}\n\n")
+        report.appendText("Plugin IDs: `${pluginIds.get().joinToString("`, `")}`\n\n")
 
         val analyzer = DefaultAnalyzer(files) { messageLevel, message ->
             if (messageLevel.toInt() >= level.get().toInt()) {
@@ -181,21 +185,27 @@ afterEvaluate {
         }
         .toList()
     CompletableFuture.allOf(*deferredResults.toTypedArray()).join()
-    // Must run in afterEvaluate to get the actual configuration of the elements in the container; all() triggers too early
+
+    val analyzedPlugins = MultimapBuilder.treeKeys().arrayListValues().build<String, AnalyzedPlugin>()
     pluginAnalyzer.analyzedPlugins.forEach { analyzedPlugin ->
-        val simplifiedName = analyzedPlugin.name.replace(':', '_').replace('.', '_')
+        analyzedPlugins.put(analyzedPlugin.artifact, analyzedPlugin)
+    }
+
+    // Must run in afterEvaluate to get the actual configuration of the elements in the container; all() triggers too early
+    analyzedPlugins.asMap().forEach { artifact, plugins ->
+        val simplifiedName = artifact.replace(':', '_').replace('.', '_')
         val config = configurations.create("conf_$simplifiedName")
         // Magic by Justin
         (project as ProjectInternal).services.get(JvmPluginServices::class.java).configureAsRuntimeClasspath(config)
-        if (analyzedPlugin.shadowed) {
+        if (plugins.any { it.shadowed }) {
             config.attributes.attribute(Bundling.BUNDLING_ATTRIBUTE, objects.named(Bundling.SHADOWED))
         }
-        analyzedPlugin.configurator.execute(config)
-        dependencies.add(config.name, analyzedPlugin.artifact)
+        plugins.forEach { it.configurator.execute(config) }
+        dependencies.add(config.name, artifact)
 
         val task = tasks.register<PluginAnalyzerTask>("analyze_$simplifiedName") {
-            pluginId = analyzedPlugin.pluginId
-            pluginArtifact = analyzedPlugin.artifact
+            pluginIds = plugins.map { it.pluginId }
+            pluginArtifact = artifact
             classpath = config
             gradleApi = project.file("${gradle.gradleUserHomeDir}/caches/${gradle.gradleVersion}/generated-gradle-jars/gradle-api-${gradle.gradleVersion}.jar")
             reportFile = project.layout.buildDirectory.file("plugin-analysis/plugins/report-${simplifiedName}.md")
