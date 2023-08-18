@@ -18,7 +18,7 @@ import kotlin.streams.toList
 
 plugins {
     // Required since we are resolving JVM artifacts
-    id("jvm-ecosystem")
+    `jvm-ecosystem`
 }
 
 open class AnalyzedPlugin(val pluginId: String) : Comparable<AnalyzedPlugin>, Named, Serializable {
@@ -27,12 +27,7 @@ open class AnalyzedPlugin(val pluginId: String) : Comparable<AnalyzedPlugin>, Na
 
     var sourceUrl: String? = null
 
-    internal var configurator: Action<in Configuration> = Actions.doNothing()
-
     override fun getName() = pluginId
-    fun configuration(configurator: SerializableLambdas.SerializableAction<in Configuration>) {
-        this.configurator = configurator
-    }
 
     override fun compareTo(other: AnalyzedPlugin) = pluginId.compareTo(other.pluginId)
 }
@@ -216,7 +211,6 @@ afterEvaluate {
 
         val config = configurations.create("conf_$simplifiedName")
         configureRequestAttributes(config)
-        plugins.forEach { it.configurator.execute(config) }
         config.dependencies.add(dependencies.create(info.artifact))
 
         val task = tasks.register<PluginAnalyzerTask>("analyze_$simplifiedName") {
