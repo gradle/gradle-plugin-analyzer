@@ -9,6 +9,7 @@ repositories {
 }
 
 pluginAnalyzer {
+    // From top community plugins https://docs.google.com/spreadsheets/d/1eNmiNu6VNGQrLApwWPjCi4a2LldIHFGOcQTGj2A4qQM/
     plugin("au.com.dius.pact")
     plugin("com.adarshr.test-logger")
     plugin("com.atlassian.performance.tools.gradle-release")
@@ -116,24 +117,14 @@ pluginAnalyzer {
     plugin("org.sonarqube")
     plugin("org.springframework.boot")
 
-//    // From popular plugins – https://docs.google.com/spreadsheets/d/1p-soKHdFdYyrrmokHXg9ug03hK4VoU8oAo7g28Knels/edit#gid=45645666)0
+    // From popular plugins – https://docs.google.com/spreadsheets/d/1p-soKHdFdYyrrmokHXg9ug03hK4VoU8oAo7g28Knels/
     plugin("com.google.dagger") {
         artifact = "com.google.dagger:hilt-android-gradle-plugin:2.47"
     }
-//    plugin("com.google.cloud.tools:jib-gradle-plugin") {
-//        configuration {
-//            // For some reason these dependencies were not found
-//            exclude("com.fasterxml.jackson.core", "jackson-databind")
-//            exclude("com.fasterxml.jackson.datatype", "jackson-datatype-jsr310")
-//        }
-//    }
-//    plugin("com.google.protobuf:protobuf-gradle-plugin")
-//    plugin("org.owasp:dependency-check-gradle")
-//    plugin("org.openapitools:openapi-generator-gradle-plugin")
-//    // TODO Is this the correct one for firebase)?
-//    plugin("com.google.gms:google-services")
-//    plugin("com.palantir.gradle.docker:gradle-docker")
-//    plugin("org.ajoberstar.grgit:grgit-gradle")
-//    plugin("com.adarshr:gradle-test-logger-plugin")
-//    plugin("com.guardsquare:proguard-gradle")
+    plugin("com.google.services") {
+        artifact = "com.google.gms:google-services:4.3.15"
+    }
+    plugin("com.guardsquare.proguard") {
+        artifact = "com.guardsquare:proguard-gradle:7.3.2"
+    }
 }
