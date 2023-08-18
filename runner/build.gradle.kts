@@ -63,14 +63,42 @@ pluginAnalyzer {
     plugin("io.franzbecker.gradle-lombok")
     plugin("io.freefair.lombok")
     plugin("io.gitlab.arturbosch.detekt")
-    // TODO These both require shadowed and non-shadowed??
-//    plugin("io.micronaut.aot")
-//    plugin("io.micronaut.application")
-//    plugin("io.micronaut.docker")
-//    plugin("io.micronaut.graalvm")
-//    plugin("io.micronaut.library")
-//    plugin("io.micronaut.minimal.application")
-//    plugin("io.micronaut.minimal.library")
+    // TODO These both require shadowed and non-shadowed?? Suppressing the Docker plugin helps, though
+    plugin("io.micronaut.aot") {
+        configuration {
+            exclude("com.bmuschko", "gradle-docker-plugin")
+        }
+    }
+    plugin("io.micronaut.application") {
+        configuration {
+            exclude("com.bmuschko", "gradle-docker-plugin")
+        }
+    }
+    plugin("io.micronaut.docker") {
+        configuration {
+            exclude("com.bmuschko", "gradle-docker-plugin")
+        }
+    }
+    plugin("io.micronaut.graalvm") {
+        configuration {
+            exclude("com.bmuschko", "gradle-docker-plugin")
+        }
+    }
+    plugin("io.micronaut.library") {
+        configuration {
+            exclude("com.bmuschko", "gradle-docker-plugin")
+        }
+    }
+    plugin("io.micronaut.minimal.application") {
+        configuration {
+            exclude("com.bmuschko", "gradle-docker-plugin")
+        }
+    }
+    plugin("io.micronaut.minimal.library") {
+        configuration {
+            exclude("com.bmuschko", "gradle-docker-plugin")
+        }
+    }
     plugin("io.qameta.allure")
     plugin("io.spring.dependency-management")
     plugin("nebula.info-basic")
