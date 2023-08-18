@@ -32,13 +32,17 @@ open class AnalyzedPlugin(val pluginId: String) : Comparable<AnalyzedPlugin>, Na
             _artifact = artifact
         }
 
-    var shadowed = false
+    internal var shadowed = false
 
     internal var configurator: Action<in Configuration> = Actions.doNothing()
 
     override fun getName() = pluginId
     fun configuration(configurator: SerializableLambdas.SerializableAction<in Configuration>) {
         this.configurator = configurator
+    }
+
+    fun shadowed() {
+        shadowed = true
     }
 
     override fun compareTo(other: AnalyzedPlugin) = pluginId.compareTo(other.pluginId)
