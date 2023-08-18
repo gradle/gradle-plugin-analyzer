@@ -14,6 +14,8 @@ import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.nio.file.Path
+import java.util.concurrent.CompletableFuture
+import kotlin.streams.toList
 
 open class AnalyzedPlugin(val pluginId: String) : Comparable<AnalyzedPlugin>, Named, Serializable {
 
@@ -166,6 +168,15 @@ val analyzePluginsTask = tasks.register<PluginAnalysisCollectorTask>("analyzePlu
 val pluginAnalyzer = extensions.create<PluginAnalyzerExtension>("pluginAnalyzer")
 
 afterEvaluate {
+    // Resolve artifacts
+    val deferredResults = pluginAnalyzer.analyzedPlugins.stream()
+        .map { analyzedPlugin ->
+            CompletableFuture.supplyAsync {
+                analyzedPlugin.artifact
+            }
+        }
+        .toList()
+    CompletableFuture.allOf(*deferredResults.toTypedArray()).join()
     // Must run in afterEvaluate to get the actual configuration of the elements in the container; all() triggers too early
     pluginAnalyzer.analyzedPlugins.forEach { analyzedPlugin ->
         val simplifiedName = analyzedPlugin.name.replace(':', '_').replace('.', '_')
