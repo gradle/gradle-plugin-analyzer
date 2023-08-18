@@ -14,9 +14,9 @@ pluginAnalyzer {
     plugin("com.adarshr.test-logger")
     plugin("com.atlassian.performance.tools.gradle-release")
     plugin("com.avast.gradle.docker-compose")
-    plugin("com.bmuschko.docker-java-application") { shadowed() }
-    plugin("com.bmuschko.docker-remote-api") { shadowed() }
-    plugin("com.bmuschko.docker-spring-boot-application") { shadowed() }
+    plugin("com.bmuschko.docker-java-application")
+    plugin("com.bmuschko.docker-remote-api")
+    plugin("com.bmuschko.docker-spring-boot-application")
     plugin("com.diffplug.configuration-cache-for-platform-specific-build")
     plugin("com.diffplug.eclipse.excludebuildfolder")
     plugin("com.diffplug.eclipse.mavencentral")
@@ -43,62 +43,27 @@ pluginAnalyzer {
     plugin("com.github.node-gradle.node")
     plugin("com.github.spotbugs")
     plugin("com.github.spotbugs-base")
-    plugin("com.google.cloud.tools.jib") {
-        configuration {
-            // For some reason these dependencies were not found
-            exclude("com.fasterxml.jackson.core", "jackson-databind")
-            exclude("com.fasterxml.jackson.datatype", "jackson-datatype-jsr310")
-        }
-    }
+    plugin("com.google.cloud.tools.jib")
     plugin("com.google.protobuf")
-    plugin("com.gorylenko.gradle-git-properties") { shadowed() }
+    plugin("com.gorylenko.gradle-git-properties")
     plugin("com.gradle.build-scan")
-    plugin("com.gradle.plugin-publish") { shadowed() }
+    plugin("com.gradle.plugin-publish")
     plugin("com.jfrog.artifactory")
     plugin("com.palantir.docker")
     plugin("com.palantir.docker-compose")
     plugin("com.palantir.docker-run")
     plugin("com.russianprussian.avast.gradle.docker-compose")
-    plugin("de.undercouch.download") { shadowed() }
+    plugin("de.undercouch.download")
     plugin("io.franzbecker.gradle-lombok")
     plugin("io.freefair.lombok")
     plugin("io.gitlab.arturbosch.detekt")
-    // TODO These both require shadowed and non-shadowed?? Suppressing the Docker plugin helps, though
-    plugin("io.micronaut.aot") {
-        configuration {
-            exclude("com.bmuschko", "gradle-docker-plugin")
-        }
-    }
-    plugin("io.micronaut.application") {
-        configuration {
-            exclude("com.bmuschko", "gradle-docker-plugin")
-        }
-    }
-    plugin("io.micronaut.docker") {
-        configuration {
-            exclude("com.bmuschko", "gradle-docker-plugin")
-        }
-    }
-    plugin("io.micronaut.graalvm") {
-        configuration {
-            exclude("com.bmuschko", "gradle-docker-plugin")
-        }
-    }
-    plugin("io.micronaut.library") {
-        configuration {
-            exclude("com.bmuschko", "gradle-docker-plugin")
-        }
-    }
-    plugin("io.micronaut.minimal.application") {
-        configuration {
-            exclude("com.bmuschko", "gradle-docker-plugin")
-        }
-    }
-    plugin("io.micronaut.minimal.library") {
-        configuration {
-            exclude("com.bmuschko", "gradle-docker-plugin")
-        }
-    }
+    plugin("io.micronaut.aot")
+    plugin("io.micronaut.application")
+    plugin("io.micronaut.docker")
+    plugin("io.micronaut.graalvm")
+    plugin("io.micronaut.library")
+    plugin("io.micronaut.minimal.application")
+    plugin("io.micronaut.minimal.library")
     plugin("io.qameta.allure")
     plugin("io.spring.dependency-management")
     plugin("nebula.info-basic")
@@ -119,7 +84,7 @@ pluginAnalyzer {
     plugin("org.gradle.kotlin.kotlin-dsl.base")
     plugin("org.gradle.kotlin.kotlin-dsl.compiler-settings")
     plugin("org.gradle.kotlin.kotlin-dsl.precompiled-script-plugins")
-    plugin("org.gradle.test-retry") { shadowed() }
+    plugin("org.gradle.test-retry")
     plugin("org.jetbrains.gradle.plugin.idea-ext")
     plugin("org.jetbrains.kotlin.android")
     plugin("org.jetbrains.kotlin.android.extensions")

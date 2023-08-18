@@ -1,7 +1,5 @@
 import com.google.common.collect.MultimapBuilder
 import org.gradle.api.internal.lambdas.SerializableLambdas
-import org.gradle.api.internal.project.ProjectInternal
-import org.gradle.api.plugins.jvm.internal.JvmPluginServices
 import org.gradle.internal.Actions
 import org.gradlex.plugins.analyzer.DefaultAnalyzer
 import org.gradlex.plugins.analyzer.analysis.TaskImplementationDoesNotExtendDefaultTask
@@ -18,23 +16,22 @@ import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
 import kotlin.streams.toList
 
+plugins {
+    // Required since we are resolving JVM artifacts
+    id("jvm-ecosystem")
+}
+
 open class AnalyzedPlugin(val pluginId: String) : Comparable<AnalyzedPlugin>, Named, Serializable {
 
     var artifact: String? = null
 
     var sourceUrl: String? = null
 
-    internal var shadowed = false
-
     internal var configurator: Action<in Configuration> = Actions.doNothing()
 
     override fun getName() = pluginId
     fun configuration(configurator: SerializableLambdas.SerializableAction<in Configuration>) {
         this.configurator = configurator
-    }
-
-    fun shadowed() {
-        shadowed = true
     }
 
     override fun compareTo(other: AnalyzedPlugin) = pluginId.compareTo(other.pluginId)
@@ -216,14 +213,11 @@ afterEvaluate {
     // Must run in afterEvaluate to get the actual configuration of the elements in the container; all() triggers too early
     analyzedPlugins.asMap().forEach { info, plugins ->
         val simplifiedName = info.artifact.replace(':', '_').replace('.', '_')
+
         val config = configurations.create("conf_$simplifiedName")
-        // Magic by Justin
-        (project as ProjectInternal).services.get(JvmPluginServices::class.java).configureAsRuntimeClasspath(config)
-        if (plugins.any { it.shadowed }) {
-            config.attributes.attribute(Bundling.BUNDLING_ATTRIBUTE, objects.named(Bundling.SHADOWED))
-        }
+        configureRequestAttributes(config)
         plugins.forEach { it.configurator.execute(config) }
-        dependencies.add(config.name, info.artifact)
+        config.dependencies.add(dependencies.create(info.artifact))
 
         val task = tasks.register<PluginAnalyzerTask>("analyze_$simplifiedName") {
             pluginIds = plugins.map { it.pluginId }
@@ -237,5 +231,25 @@ afterEvaluate {
         analyzePluginsTask.configure {
             inputReports.from(task.flatMap { it.reportFile })
         }
+    }
+}
+
+/**
+ * Use the same request attribute that Gradle will use to resolve the plugin classpath, as defined by:
+ * [Link](https://github.com/gradle/gradle/blob/master/subprojects/core/src/main/java/org/gradle/api/internal/initialization/DefaultScriptClassPathResolver.java#L52-L67)
+ *
+ * Note, that Gradle also sets the `TargetJvmVersion` attribute to the version of the JVM that this build is
+ * running on. However, this would restrict the analyzer plugin to only resolve plugins that have a target Java
+ * version less than or equal to the current JVM version.
+ * Since the analyzer logic can seemingly run on a lower JVM version than the plugins that it analyzes,
+ * we deviate from the conventional attributes by not setting the target JVM attribute.
+ */
+fun configureRequestAttributes(config: Configuration) {
+    config.attributes {
+        attributes.attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage::class.java, Usage.JAVA_RUNTIME))
+        attributes.attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category::class.java, Category.LIBRARY))
+        attributes.attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(LibraryElements::class.java, LibraryElements.JAR))
+        attributes.attribute(Bundling.BUNDLING_ATTRIBUTE, objects.named(Bundling::class.java, Bundling.EXTERNAL))
+        attributes.attribute(GradlePluginApiVersion.GRADLE_PLUGIN_API_VERSION_ATTRIBUTE, objects.named(GradlePluginApiVersion::class.java, GradleVersion.current().version))
     }
 }
