@@ -16,7 +16,6 @@ import org.gradlex.plugins.analyzer.TypeOrigin;
 import org.slf4j.event.Level;
 
 import java.util.ArrayDeque;
-import java.util.Arrays;
 import java.util.Objects;
 import java.util.Queue;
 import java.util.function.Predicate;
@@ -70,12 +69,7 @@ public abstract class AbstractTaskImplementationDoesNotOverrideMethod extends Ex
     }
 
     private static void checkOverridingInstructions(ShrikeCTMethod method) throws InvalidClassFileException, AnalysisException {
-        IInstruction[] instructions = method.getInstructions();
-        Arrays.stream(instructions)
-            .forEach(instruction -> {
-                System.out.println("Instruction: " + instruction);
-            });
-        InstructionQueue queue = new InstructionQueue(instructions);
+        InstructionQueue queue = new InstructionQueue(method.getInstructions());
 
         ILoadInstruction iLoad = queue.expectNext(ILoadInstruction.class);
         if (!iLoad.getType().equals("Ljava/lang/Object;")) {
@@ -110,6 +104,8 @@ public abstract class AbstractTaskImplementationDoesNotOverrideMethod extends Ex
         int counter = 0;
 
         public InstructionQueue(IInstruction... instructions) {
+//            Arrays.stream(instructions)
+//                .forEach(System.out::println);
             this.instructions = new ArrayDeque<>(ImmutableList.copyOf(instructions));
         }
 
