@@ -12,6 +12,11 @@ class AbstractTaskImplementationDoesNotOverrideMethodTest extends AbstractAnalys
                 public boolean getEnabled() {
                     return super.getEnabled();
                 }
+
+                @Override
+                public org.gradle.api.file.FileTree getSource() {
+                    return super.getSource();
+                }
             }
         """)
 
@@ -20,7 +25,8 @@ class AbstractTaskImplementationDoesNotOverrideMethodTest extends AbstractAnalys
 
         then:
         reports == [
-            "INFO: The method getEnabled() in LCustomTask overrides Gradle API from Lorg/gradle/api/DefaultTask, but calls only super()"
+            "INFO: The method getEnabled() in LCustomTask overrides Gradle API from Lorg/gradle/api/DefaultTask, but calls only super()",
+            "INFO: The method getSource() in LCustomTask overrides Gradle API from Lorg/gradle/api/tasks/SourceTask, but calls only super()",
         ]
     }
 
