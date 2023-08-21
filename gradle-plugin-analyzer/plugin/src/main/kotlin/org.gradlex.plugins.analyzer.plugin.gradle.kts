@@ -181,7 +181,9 @@ afterEvaluate {
 
         val config = configurations.create("conf_$simplifiedName")
         configureRequestAttributes(config)
-        config.dependencies.add(dependencies.create(analyzedPlugin.pluginId + ":" + analyzedPlugin.pluginId + ".gradle.plugin:+"))
+        val artifact = analyzedPlugin.artifact
+            ?: (analyzedPlugin.pluginId + ":" + analyzedPlugin.pluginId + ".gradle.plugin:latest.release")
+        config.dependencies.add(dependencies.create(artifact))
 
         val task = tasks.register<PluginAnalyzerTask>("analyze_$simplifiedName") {
             pluginId = analyzedPlugin.pluginId
