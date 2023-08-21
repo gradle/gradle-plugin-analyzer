@@ -22,8 +22,6 @@ import java.util.Queue;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
-import static org.gradlex.plugins.analyzer.TypeNotationConverter.toFQCN;
-
 public abstract class AbstractTaskImplementationDoesNotOverrideMethod extends ExternalSubtypeAnalysis {
     private final String methodType;
     private final Predicate<? super IMethod> filter;
@@ -59,7 +57,7 @@ public abstract class AbstractTaskImplementationDoesNotOverrideMethod extends Ex
     private void reportOverriddenMethod(AnalysisContext context, IClass type, IMethod method, IMethod overriddenMethod) {
         ShrikeCTMethod methodImpl = (ShrikeCTMethod) method;
         try {
-            checkOverridingInstructions(methodImpl, overriddenMethod);
+            checkOverridingInstructions(methodImpl);
         } catch (InvalidClassFileException e) {
             throw new RuntimeException(e);
         } catch (AnalysisException ex) {
@@ -71,7 +69,7 @@ public abstract class AbstractTaskImplementationDoesNotOverrideMethod extends Ex
             methodType, method.getName(), type.getName(), overriddenMethod.getDeclaringClass().getName()));
     }
 
-    private static void checkOverridingInstructions(ShrikeCTMethod method, IMethod overriddenMethod) throws InvalidClassFileException, AnalysisException {
+    private static void checkOverridingInstructions(ShrikeCTMethod method) throws InvalidClassFileException, AnalysisException {
         IInstruction[] instructions = method.getInstructions();
         Arrays.stream(instructions)
             .forEach(instruction -> {
@@ -92,10 +90,11 @@ public abstract class AbstractTaskImplementationDoesNotOverrideMethod extends Ex
         }
 
         IInvokeInstruction iInvoke = queue.expectNext(IInvokeInstruction.class);
-        String overriddenMethodSignature = overriddenMethod.getSignature();
-        String invokedMethodSignature = toFQCN(iInvoke.getClassType()) + "." + iInvoke.getMethodName() + iInvoke.getMethodSignature();
-        if (!invokedMethodSignature.equals(overriddenMethodSignature)) {
-            throw new AnalysisException("Invokes different method, expected: %s, got: %s", overriddenMethodSignature, invokedMethodSignature);
+        // Remove type prefix + '.'
+        String expectedMethodSignature = method.getSignature().substring(method.getDeclaringClass().getName().toString().length());
+        String invokedMethodSignature = iInvoke.getMethodName() + iInvoke.getMethodSignature();
+        if (!invokedMethodSignature.equals(expectedMethodSignature)) {
+            throw new AnalysisException("Invokes different method, expected: %s, got: %s", expectedMethodSignature, invokedMethodSignature);
         }
         if (!iInvoke.getInvocationCode().equals(Dispatch.SPECIAL)) {
             throw new AnalysisException("Invoke instruction is not special: %s", iInvoke);

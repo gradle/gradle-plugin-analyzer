@@ -7,7 +7,7 @@ class AbstractTaskImplementationDoesNotOverrideMethodTest extends AbstractAnalys
 
     def "can detect super-only overriding method"() {
         compileJava("""
-            class CustomTask extends org.gradle.api.DefaultTask {
+            class CustomTask extends org.gradle.api.tasks.SourceTask {
                 @Override
                 public boolean getEnabled() {
                     return super.getEnabled();
