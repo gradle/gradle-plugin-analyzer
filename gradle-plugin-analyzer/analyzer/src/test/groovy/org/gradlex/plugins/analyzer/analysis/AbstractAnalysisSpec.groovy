@@ -10,22 +10,16 @@ import java.nio.file.Path
 import java.nio.file.Paths
 
 class AbstractAnalysisSpec extends Specification {
-    GroovyClassLoader classLoader
+    String gradleApi
     List<String> reports
     List<Path> files
     Analyzer analyzer
+    File targetDirectory = new File("build/test-classes/${getClass().simpleName}")
 
     def setup() {
-        def gradleApi = System.getProperty("gradle-api")
-
-        File targetDirectory = new File("build/test-classes/${getClass().simpleName}")
         assert targetDirectory.deleteDir()
-        CompilerConfiguration config = new CompilerConfiguration()
-        config.setTargetDirectory(targetDirectory)
 
-        this.classLoader = new GroovyClassLoader(Thread.currentThread().contextClassLoader, config)
-        classLoader.addClasspath(gradleApi)
-
+        gradleApi = System.getProperty("gradle-api")
         files = [Paths.get(gradleApi), targetDirectory.toPath()]
         reports = []
     }
@@ -38,5 +32,15 @@ class AbstractAnalysisSpec extends Specification {
 
     protected List<String> getReports() {
         ImmutableList.sortedCopyOf(reports)
+    }
+
+    protected void compileGroovy(String source) {
+        CompilerConfiguration config = new CompilerConfiguration()
+        config.setTargetDirectory(targetDirectory)
+        GroovyClassLoader classLoader
+        classLoader = new GroovyClassLoader(Thread.currentThread().contextClassLoader, config)
+        classLoader.addClasspath(gradleApi)
+
+        classLoader.parseClass(source)
     }
 }

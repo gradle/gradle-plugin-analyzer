@@ -2,7 +2,7 @@ package org.gradlex.plugins.analyzer.analysis
 
 class TaskImplementationDoesNotOverrideGetterTest extends AbstractAnalysisSpec {
     def "can detect type overriding getter"() {
-        classLoader.parseClass("""
+        compileGroovy("""
             class CustomTask extends org.gradle.api.tasks.SourceTask {
                 @Override
                 org.gradle.api.file.FileTree getSource() {

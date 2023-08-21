@@ -2,7 +2,7 @@ package org.gradlex.plugins.analyzer.analysis
 
 class TaskImplementationDoesNotExtendDefaultTaskTest extends AbstractAnalysisSpec {
     def "can detect task extending SourceTask"() {
-        classLoader.parseClass("""
+        compileGroovy("""
             class GoodTask extends org.gradle.api.DefaultTask {}
             class BadTask extends org.gradle.api.tasks.SourceTask {}
         """)
