@@ -1,5 +1,6 @@
 package org.gradlex.plugins.analyzer.analysis;
 
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.ibm.wala.classLoader.IClass;
 import com.ibm.wala.classLoader.IMember;
@@ -9,6 +10,7 @@ import com.ibm.wala.shrike.shrikeBT.IInstruction;
 import com.ibm.wala.shrike.shrikeBT.IInvokeInstruction;
 import com.ibm.wala.shrike.shrikeBT.IInvokeInstruction.Dispatch;
 import com.ibm.wala.shrike.shrikeBT.ILoadInstruction;
+import com.ibm.wala.shrike.shrikeBT.IStoreInstruction;
 import com.ibm.wala.shrike.shrikeBT.ReturnInstruction;
 import com.ibm.wala.shrike.shrikeCT.InvalidClassFileException;
 import org.gradlex.plugins.analyzer.ExternalSubtypeAnalysis;
@@ -16,7 +18,9 @@ import org.gradlex.plugins.analyzer.TypeOrigin;
 import org.slf4j.event.Level;
 
 import java.util.ArrayDeque;
+import java.util.Arrays;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Queue;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
@@ -71,6 +75,18 @@ public abstract class AbstractTaskImplementationDoesNotOverrideMethod extends Ex
     private static void checkOverridingInstructions(ShrikeCTMethod method) throws InvalidClassFileException, AnalysisException {
         InstructionQueue queue = new InstructionQueue(method.getInstructions());
 
+        queue.takeNextIf(IInvokeInstruction.class, invokeCallSiteArray ->
+                invokeCallSiteArray.getInvocationCode() == Dispatch.SPECIAL
+                && invokeCallSiteArray.getMethodName().equals("$getCallSiteArray"))
+            .ifPresentOrElse(
+                invokeInstruction -> checkDynamicGroovyInstructions(method, queue),
+                () -> checkJavaInstructions(method, queue)
+            );
+
+        queue.expectNoMore();
+    }
+
+    private static void checkJavaInstructions(ShrikeCTMethod method, InstructionQueue queue) throws AnalysisException {
         ILoadInstruction iLoad = queue.expectNext(ILoadInstruction.class);
         if (!iLoad.getType().equals("Ljava/lang/Object;")) {
             throw new AnalysisException("Load instruction has wrong type: %s", iLoad.getType());
@@ -95,8 +111,10 @@ public abstract class AbstractTaskImplementationDoesNotOverrideMethod extends Ex
         }
 
         queue.expectNext(ReturnInstruction.class);
+    }
 
-        queue.expectFinished();
+    private static void checkDynamicGroovyInstructions(ShrikeCTMethod method, InstructionQueue queue) throws AnalysisException {
+        queue.expectNext(IStoreInstruction.class);
     }
 
     private static class InstructionQueue {
@@ -109,27 +127,53 @@ public abstract class AbstractTaskImplementationDoesNotOverrideMethod extends Ex
             this.instructions = new ArrayDeque<>(ImmutableList.copyOf(instructions));
         }
 
-        public <I extends IInstruction> I expectNext(Class<I> type) throws AnalysisException {
-            counter++;
-            IInstruction next = instructions.poll();
-            if (next == null) {
-                throw new AnalysisException("No more instruction at #%d", counter);
-            }
-            if (!type.isInstance(next)) {
-                throw new AnalysisException("Instruction #%d expected to be %s but found %s",
-                    counter, type.getSimpleName(), next.getClass());
-            }
-            return type.cast(next);
+        public <I extends IInstruction> Optional<I> takeNextIf(Class<I> type) throws AnalysisException {
+            return takeNextIf(type, Predicates.alwaysTrue());
         }
 
-        public void expectFinished() throws AnalysisException {
+        public <I extends IInstruction> Optional<I> takeNextIf(Class<I> type, Predicate<? super I> matcher) throws AnalysisException {
+            IInstruction next = instructions.peek();
+            if (next == null) {
+                throw new AnalysisException("No more instruction after #%d", counter);
+            }
+            if (type.isInstance(next)) {
+                I typedNext = type.cast(next);
+                if (matcher.test(typedNext)) {
+                    counter++;
+                    instructions.poll();
+                    return Optional.of(typedNext);
+                }
+            }
+            return Optional.empty();
+        }
+
+        public <I extends IInstruction> I expectNext(Class<I> type) throws AnalysisException {
+            return takeNextIf(type)
+                .orElseThrow(() -> new AnalysisException("Instruction #%d expected to be %s but it wasn't",
+                    counter + 1, type.getSimpleName()));
+        }
+
+        public <I extends IInstruction> I expectNext(Class<I> type, Predicate<? super I> matcher) throws AnalysisException {
+            return takeNextIf(type)
+                .map(instruction -> {
+                    if (matcher.test(instruction)) {
+                        return instruction;
+                    } else {
+                        throw new AnalysisException("Instruction #%d (%s) had unexpected parameters", counter, type.getSimpleName());
+                    }
+                })
+                .orElseThrow(() -> new AnalysisException("Instruction #%d expected to be %s but it wasn't",
+                    counter + 1, type.getSimpleName()));
+        }
+
+        public void expectNoMore() throws AnalysisException {
             if (!instructions.isEmpty()) {
                 throw new AnalysisException("Expected no more instructions after #%d but there are %d more", counter, instructions.size());
             }
         }
     }
 
-    private static class AnalysisException extends Exception {
+    private static class AnalysisException extends RuntimeException {
         public AnalysisException(String message) {
             super(message);
         }
