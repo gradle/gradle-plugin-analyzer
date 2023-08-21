@@ -6,6 +6,7 @@ import com.ibm.wala.classLoader.IClass;
 import com.ibm.wala.classLoader.IMember;
 import com.ibm.wala.classLoader.IMethod;
 import com.ibm.wala.classLoader.ShrikeCTMethod;
+import com.ibm.wala.shrike.shrikeBT.ConstantInstruction;
 import com.ibm.wala.shrike.shrikeBT.IInstruction;
 import com.ibm.wala.shrike.shrikeBT.IInvokeInstruction;
 import com.ibm.wala.shrike.shrikeBT.IInvokeInstruction.Dispatch;
@@ -13,6 +14,7 @@ import com.ibm.wala.shrike.shrikeBT.ILoadInstruction;
 import com.ibm.wala.shrike.shrikeBT.IStoreInstruction;
 import com.ibm.wala.shrike.shrikeBT.ReturnInstruction;
 import com.ibm.wala.shrike.shrikeCT.InvalidClassFileException;
+import com.ibm.wala.types.TypeReference;
 import org.gradlex.plugins.analyzer.ExternalSubtypeAnalysis;
 import org.gradlex.plugins.analyzer.TypeOrigin;
 import org.slf4j.event.Level;
@@ -76,7 +78,7 @@ public abstract class AbstractTaskImplementationDoesNotOverrideMethod extends Ex
         InstructionQueue queue = new InstructionQueue(method.getInstructions());
 
         queue.takeNextIf(IInvokeInstruction.class, invokeCallSiteArray ->
-                invokeCallSiteArray.getInvocationCode() == Dispatch.SPECIAL
+                invokeCallSiteArray.getInvocationCode() == Dispatch.STATIC
                 && invokeCallSiteArray.getMethodName().equals("$getCallSiteArray"))
             .ifPresentOrElse(
                 invokeInstruction -> checkDynamicGroovyInstructions(method, queue),
@@ -114,7 +116,13 @@ public abstract class AbstractTaskImplementationDoesNotOverrideMethod extends Ex
     }
 
     private static void checkDynamicGroovyInstructions(ShrikeCTMethod method, InstructionQueue queue) throws AnalysisException {
-        queue.expectNext(IStoreInstruction.class);
+        // Process remaining of Groovy method init
+        queue.expectNext(IStoreInstruction.class, iStore ->
+            iStore.getType().equals(TypeReference.JavaLangObject.getName() + ";")
+            && iStore.getVarIndex() == 1);
+        queue.expectNext(ConstantInstruction.class);
+
+
     }
 
     private static class InstructionQueue {
@@ -122,8 +130,8 @@ public abstract class AbstractTaskImplementationDoesNotOverrideMethod extends Ex
         int counter = 0;
 
         public InstructionQueue(IInstruction... instructions) {
-//            Arrays.stream(instructions)
-//                .forEach(System.out::println);
+            Arrays.stream(instructions)
+                .forEach(System.out::println);
             this.instructions = new ArrayDeque<>(ImmutableList.copyOf(instructions));
         }
 
@@ -148,22 +156,24 @@ public abstract class AbstractTaskImplementationDoesNotOverrideMethod extends Ex
         }
 
         public <I extends IInstruction> I expectNext(Class<I> type) throws AnalysisException {
-            return takeNextIf(type)
-                .orElseThrow(() -> new AnalysisException("Instruction #%d expected to be %s but it wasn't",
-                    counter + 1, type.getSimpleName()));
+            return expectNext(type, Predicates.alwaysTrue());
         }
 
         public <I extends IInstruction> I expectNext(Class<I> type, Predicate<? super I> matcher) throws AnalysisException {
-            return takeNextIf(type)
-                .map(instruction -> {
-                    if (matcher.test(instruction)) {
-                        return instruction;
-                    } else {
-                        throw new AnalysisException("Instruction #%d (%s) had unexpected parameters", counter, type.getSimpleName());
-                    }
-                })
-                .orElseThrow(() -> new AnalysisException("Instruction #%d expected to be %s but it wasn't",
-                    counter + 1, type.getSimpleName()));
+            IInstruction next = instructions.poll();
+            if (next == null) {
+                throw new AnalysisException("No more instruction after #%d", counter);
+            }
+            counter++;
+            if (!type.isInstance(next)) {
+                throw new AnalysisException("Instruction #%d expected to be %s but it was %s",
+                    counter, type.getSimpleName(), next);
+            }
+            I typedNext = type.cast(next);
+            if (!matcher.test(typedNext)) {
+                throw new AnalysisException("Instruction #%d (%s) had unexpected parameters: %s", counter, type.getSimpleName(), next);
+            }
+            return typedNext;
         }
 
         public void expectNoMore() throws AnalysisException {

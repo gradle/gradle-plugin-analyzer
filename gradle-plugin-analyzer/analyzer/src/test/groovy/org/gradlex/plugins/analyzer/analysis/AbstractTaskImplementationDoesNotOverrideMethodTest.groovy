@@ -46,7 +46,7 @@ class AbstractTaskImplementationDoesNotOverrideMethodTest extends AbstractAnalys
 
         then:
         reports == [
-            "WARN: The method setEnabled() in LCustomTask overrides Gradle API from Lorg/gradle/api/DefaultTask with custom logic: Instruction #4 expected to be ReturnInstruction but found class com.ibm.wala.shrike.shrikeBT.GetInstruction\$Lazy"
+            ": The method setEnabled() in LCustomTask overrides Gradle API from Lorg/gradle/api/DefaultTask with custom logic: Instruction #5 expected to be ReturnInstruction but it was Get(Ljava/io/PrintStream;,STATIC,Ljava/lang/System;,out)"
         ]
     }
 
@@ -76,7 +76,6 @@ class AbstractTaskImplementationDoesNotOverrideMethodTest extends AbstractAnalys
         ]
     }
 
-
     def "can detect overriding method with custom logic in static Groovy code"() {
         compileGroovy("""
             @groovy.transform.CompileStatic
@@ -94,7 +93,32 @@ class AbstractTaskImplementationDoesNotOverrideMethodTest extends AbstractAnalys
 
         then:
         reports == [
-            "WARN: The method setEnabled() in LCustomTask overrides Gradle API from Lorg/gradle/api/DefaultTask with custom logic: Instruction #4 expected to be ReturnInstruction but found class com.ibm.wala.shrike.shrikeBT.ConstantInstruction\$ConstNull"
+            "WARN: The method setEnabled() in LCustomTask overrides Gradle API from Lorg/gradle/api/DefaultTask with custom logic: Instruction #5 expected to be ReturnInstruction but it was Constant(L;,null)"
+        ]
+    }
+
+    def "can detect super-only overriding method in dynamic Groovy code"() {
+        compileGroovy("""
+            class CustomTask extends org.gradle.api.tasks.SourceTask {
+                @Override
+                boolean getEnabled() {
+                    return super.getEnabled()
+                }
+//
+//                @Override
+//                org.gradle.api.file.FileTree getSource() {
+//                    return super.getSource()
+//                }
+            }
+        """)
+
+        when:
+        analyzer.analyze(analysis)
+
+        then:
+        reports == [
+            "INFO: The method getEnabled() in LCustomTask overrides Gradle API from Lorg/gradle/api/DefaultTask, but calls only super()",
+            "INFO: The method getSource() in LCustomTask overrides Gradle API from Lorg/gradle/api/tasks/SourceTask, but calls only super()",
         ]
     }
 }
