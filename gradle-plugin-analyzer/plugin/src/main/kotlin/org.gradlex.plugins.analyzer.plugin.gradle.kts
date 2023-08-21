@@ -1,5 +1,3 @@
-import com.google.common.collect.MultimapBuilder
-import org.gradle.api.internal.lambdas.SerializableLambdas
 import org.gradle.internal.Actions
 import org.gradlex.plugins.analyzer.DefaultAnalyzer
 import org.gradlex.plugins.analyzer.analysis.TaskImplementationDoesNotExtendDefaultTask
@@ -13,8 +11,6 @@ import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.nio.file.Path
-import java.util.concurrent.CompletableFuture
-import kotlin.streams.toList
 
 plugins {
     // Required since we are resolving JVM artifacts
@@ -43,10 +39,7 @@ open class PluginAnalyzerExtension(objects: ObjectFactory) : Serializable {
 @CacheableTask
 abstract class PluginAnalyzerTask : DefaultTask() {
     @get:Input
-    abstract val pluginIds: ListProperty<String>
-
-    @get:Input
-    abstract val pluginArtifact: Property<String>
+    abstract val pluginId: Property<String>
 
     @get:Input
     @get:Optional
@@ -79,8 +72,13 @@ abstract class PluginAnalyzerTask : DefaultTask() {
         val report = reportFile.get().asFile
         report.delete()
         report.createNewFile()
-        report.appendText("## ${formatPlugin(pluginArtifact.get(), pluginSourceUrl.orNull)}\n\n")
-        report.appendText("Plugin IDs: `${pluginIds.get().joinToString("`, `")}`\n\n")
+
+        report.appendText("## ${pluginId.get()}\n\n")
+        report.appendText("Classpath:\n")
+        classpath.files.forEach { entry ->
+            report.appendText("- `$entry\n")
+        }
+        report.appendText("\n")
 
         val analyzer = DefaultAnalyzer(files) { messageLevel, message ->
             if (messageLevel.toInt() >= level.get().toInt()) {
@@ -178,45 +176,16 @@ val analyzePluginsTask = tasks.register<PluginAnalysisCollectorTask>("analyzePlu
 val pluginAnalyzer = extensions.create<PluginAnalyzerExtension>("pluginAnalyzer")
 
 afterEvaluate {
-    // Resolve artifacts
-    val pluginInfoFutures = pluginAnalyzer.analyzedPlugins.stream()
-        .map { analyzedPlugin ->
-            val artifact: String? = analyzedPlugin.artifact
-            if (artifact == null) {
-                CompletableFuture.supplyAsync {
-                    val info = Util.lookupPlugin(analyzedPlugin.pluginId)
-                    analyzedPlugin.artifact = info.artifact
-                    Pair(info, analyzedPlugin)
-                }
-            } else {
-                CompletableFuture.completedFuture(Pair(PluginInfo(artifact, null), analyzedPlugin))
-            }
-        }
-        .toList()
-    CompletableFuture.allOf(*pluginInfoFutures.toTypedArray()).join()
-
-    val analyzedPlugins = MultimapBuilder.treeKeys().arrayListValues().build<PluginInfo, AnalyzedPlugin>()
-    pluginInfoFutures.forEach {
-        val pluginInfo = it.get().first
-        val plugin = it.get().second
-        analyzedPlugins.put(pluginInfo, plugin)
-    }
-
     pluginAnalyzer.analyzedPlugins.forEach { analyzedPlugin ->
-    }
-
-    // Must run in afterEvaluate to get the actual configuration of the elements in the container; all() triggers too early
-    analyzedPlugins.asMap().forEach { info, plugins ->
-        val simplifiedName = info.artifact.replace(':', '_').replace('.', '_')
+        val simplifiedName = analyzedPlugin.pluginId.replace(':', '_').replace('.', '_')
 
         val config = configurations.create("conf_$simplifiedName")
         configureRequestAttributes(config)
-        config.dependencies.add(dependencies.create(info.artifact))
+        config.dependencies.add(dependencies.create(analyzedPlugin.pluginId + ":" + analyzedPlugin.pluginId + ".gradle.plugin:+"))
 
         val task = tasks.register<PluginAnalyzerTask>("analyze_$simplifiedName") {
-            pluginIds = plugins.map { it.pluginId }
-            pluginArtifact = info.artifact
-            pluginSourceUrl = info.sourceUrl
+            pluginId = analyzedPlugin.pluginId
+            pluginSourceUrl = "https://plugins.gradle.org/plugin/${analyzedPlugin.pluginId}"
             classpath = config
             gradleApi = project.file("${gradle.gradleUserHomeDir}/caches/${gradle.gradleVersion}/generated-gradle-jars/gradle-api-${gradle.gradleVersion}.jar")
             reportFile = project.layout.buildDirectory.file("plugin-analysis/plugins/report-${simplifiedName}.md")
