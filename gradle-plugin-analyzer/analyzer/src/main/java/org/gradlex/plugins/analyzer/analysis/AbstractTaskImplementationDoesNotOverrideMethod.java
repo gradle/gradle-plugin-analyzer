@@ -3,10 +3,13 @@ package org.gradlex.plugins.analyzer.analysis;
 import com.ibm.wala.classLoader.IClass;
 import com.ibm.wala.classLoader.IMember;
 import com.ibm.wala.classLoader.IMethod;
+import com.ibm.wala.classLoader.ShrikeCTMethod;
+import com.ibm.wala.shrike.shrikeCT.InvalidClassFileException;
 import org.gradlex.plugins.analyzer.ExternalSubtypeAnalysis;
 import org.gradlex.plugins.analyzer.TypeOrigin;
 import org.slf4j.event.Level;
 
+import java.util.Arrays;
 import java.util.Objects;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
@@ -39,8 +42,23 @@ public abstract class AbstractTaskImplementationDoesNotOverrideMethod extends Ex
                 // Find the same method in the superclass
                 .flatMap(clazz -> Stream.ofNullable(clazz.getMethod(method.getSelector())))
                 .findFirst()
-                .ifPresent(overriddenMethod -> context.report(Level.WARN, String.format("The %s %s() in %s overrides Gradle API from %s",
-                    methodType, method.getName(), type.getName(), overriddenMethod.getDeclaringClass().getName())))
+                .ifPresent(overriddenMethod -> analyzeOverriddenMethod(type, context, method, overriddenMethod))
             );
+    }
+
+    private void analyzeOverriddenMethod(IClass type, AnalysisContext context, IMethod method, IMethod overriddenMethod) {
+        context.report(Level.WARN, String.format("The %s %s() in %s overrides Gradle API from %s",
+            methodType, method.getName(), type.getName(), overriddenMethod.getDeclaringClass().getName()));
+        try {
+            System.out.println("--------------------");
+            System.out.println("Method: " + method.getSignature());
+            System.out.println();
+            Arrays.stream(((ShrikeCTMethod) method).getInstructions())
+                .forEach(iInstruction -> {
+                    System.out.println("Instruction: " + iInstruction);
+                });
+        } catch (InvalidClassFileException e) {
+            throw new RuntimeException(e);
+        }
     }
 }
