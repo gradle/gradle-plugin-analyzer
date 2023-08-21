@@ -2,11 +2,11 @@ package org.gradlex.plugins.analyzer.analysis
 
 class TaskImplementationDoesNotOverrideSetterTest extends AbstractAnalysisSpec {
     def "can detect type overriding setter"() {
-        compileGroovy("""
+        compileJava("""
             class CustomTask extends org.gradle.api.DefaultTask {
                 @Override
-                void setEnabled(boolean enabled) {
-                    System.out.println("Overriding")
+                public void setEnabled(boolean enabled) {
+                    super.setEnabled(enabled);
                 }
             }
         """)
@@ -16,7 +16,7 @@ class TaskImplementationDoesNotOverrideSetterTest extends AbstractAnalysisSpec {
 
         then:
         reports == [
-            "WARN: The setter setEnabled() in LCustomTask overrides Gradle API from Lorg/gradle/api/DefaultTask"
+            "INFO: The setter setEnabled() in LCustomTask overrides Gradle API from Lorg/gradle/api/DefaultTask, but calls only super()"
         ]
     }
 }

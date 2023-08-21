@@ -1,18 +1,28 @@
 package org.gradlex.plugins.analyzer.analysis;
 
+import com.google.common.collect.ImmutableList;
 import com.ibm.wala.classLoader.IClass;
 import com.ibm.wala.classLoader.IMember;
 import com.ibm.wala.classLoader.IMethod;
 import com.ibm.wala.classLoader.ShrikeCTMethod;
+import com.ibm.wala.shrike.shrikeBT.IInstruction;
+import com.ibm.wala.shrike.shrikeBT.IInvokeInstruction;
+import com.ibm.wala.shrike.shrikeBT.IInvokeInstruction.Dispatch;
+import com.ibm.wala.shrike.shrikeBT.ILoadInstruction;
+import com.ibm.wala.shrike.shrikeBT.ReturnInstruction;
 import com.ibm.wala.shrike.shrikeCT.InvalidClassFileException;
 import org.gradlex.plugins.analyzer.ExternalSubtypeAnalysis;
 import org.gradlex.plugins.analyzer.TypeOrigin;
 import org.slf4j.event.Level;
 
+import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Objects;
+import java.util.Queue;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
+
+import static org.gradlex.plugins.analyzer.TypeNotationConverter.toFQCN;
 
 public abstract class AbstractTaskImplementationDoesNotOverrideMethod extends ExternalSubtypeAnalysis {
     private final String methodType;
@@ -42,23 +52,95 @@ public abstract class AbstractTaskImplementationDoesNotOverrideMethod extends Ex
                 // Find the same method in the superclass
                 .flatMap(clazz -> Stream.ofNullable(clazz.getMethod(method.getSelector())))
                 .findFirst()
-                .ifPresent(overriddenMethod -> analyzeOverriddenMethod(type, context, method, overriddenMethod))
+                .ifPresent(overriddenMethod -> reportOverriddenMethod(context, type, method, overriddenMethod))
             );
     }
 
-    private void analyzeOverriddenMethod(IClass type, AnalysisContext context, IMethod method, IMethod overriddenMethod) {
-        context.report(Level.WARN, String.format("The %s %s() in %s overrides Gradle API from %s",
-            methodType, method.getName(), type.getName(), overriddenMethod.getDeclaringClass().getName()));
+    private void reportOverriddenMethod(AnalysisContext context, IClass type, IMethod method, IMethod overriddenMethod) {
+        ShrikeCTMethod methodImpl = (ShrikeCTMethod) method;
         try {
-            System.out.println("--------------------");
-            System.out.println("Method: " + method.getSignature());
-            System.out.println();
-            Arrays.stream(((ShrikeCTMethod) method).getInstructions())
-                .forEach(iInstruction -> {
-                    System.out.println("Instruction: " + iInstruction);
-                });
+            checkOverridingInstructions(methodImpl, overriddenMethod);
         } catch (InvalidClassFileException e) {
             throw new RuntimeException(e);
+        } catch (AnalysisException ex) {
+            context.report(Level.WARN, String.format("The %s %s() in %s overrides Gradle API from %s with custom logic: %s",
+                methodType, method.getName(), type.getName(), overriddenMethod.getDeclaringClass().getName(), ex.getMessage()));
+            return;
+        }
+        context.report(Level.INFO, String.format("The %s %s() in %s overrides Gradle API from %s, but calls only super()",
+            methodType, method.getName(), type.getName(), overriddenMethod.getDeclaringClass().getName()));
+    }
+
+    private static void checkOverridingInstructions(ShrikeCTMethod method, IMethod overriddenMethod) throws InvalidClassFileException, AnalysisException {
+        IInstruction[] instructions = method.getInstructions();
+        Arrays.stream(instructions)
+            .forEach(instruction -> {
+                System.out.println("Instruction: " + instruction);
+            });
+        InstructionQueue queue = new InstructionQueue(instructions);
+
+        ILoadInstruction iLoad = queue.expectNext(ILoadInstruction.class);
+        if (!iLoad.getType().equals("Ljava/lang/Object;")) {
+            throw new AnalysisException("Load instruction has wrong type: %s", iLoad.getType());
+        }
+        if (iLoad.getVarIndex() != 0) {
+            throw new AnalysisException("Load instruction has wrong var index: %s", iLoad.getVarIndex());
+        }
+
+        for (int paremNo = 0; paremNo < method.getNumberOfParameters() - 1; paremNo++) {
+            queue.expectNext(ILoadInstruction.class);
+        }
+
+        IInvokeInstruction iInvoke = queue.expectNext(IInvokeInstruction.class);
+        String overriddenMethodSignature = overriddenMethod.getSignature();
+        String invokedMethodSignature = toFQCN(iInvoke.getClassType()) + "." + iInvoke.getMethodName() + iInvoke.getMethodSignature();
+        if (!invokedMethodSignature.equals(overriddenMethodSignature)) {
+            throw new AnalysisException("Invokes different method, expected: %s, got: %s", overriddenMethodSignature, invokedMethodSignature);
+        }
+        if (!iInvoke.getInvocationCode().equals(Dispatch.SPECIAL)) {
+            throw new AnalysisException("Invoke instruction is not special: %s", iInvoke);
+        }
+
+        queue.expectNext(ReturnInstruction.class);
+
+        queue.expectFinished();
+    }
+
+    private static class InstructionQueue {
+        private final Queue<IInstruction> instructions;
+        int counter = 0;
+
+        public InstructionQueue(IInstruction... instructions) {
+            this.instructions = new ArrayDeque<>(ImmutableList.copyOf(instructions));
+        }
+
+        public <I extends IInstruction> I expectNext(Class<I> type) throws AnalysisException {
+            counter++;
+            IInstruction next = instructions.poll();
+            if (next == null) {
+                throw new AnalysisException("No more instruction at #%d", counter);
+            }
+            if (!type.isInstance(next)) {
+                throw new AnalysisException("Instruction #%d expected to be %s but found %s",
+                    counter, type.getSimpleName(), next.getClass());
+            }
+            return type.cast(next);
+        }
+
+        public void expectFinished() throws AnalysisException {
+            if (!instructions.isEmpty()) {
+                throw new AnalysisException("Expected no more instructions after #%d but there are %d more", counter, instructions.size());
+            }
+        }
+    }
+
+    private static class AnalysisException extends Exception {
+        public AnalysisException(String message) {
+            super(message);
+        }
+
+        public AnalysisException(String message, Object... params) {
+            this(String.format(message, params));
         }
     }
 }

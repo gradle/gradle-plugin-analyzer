@@ -2,12 +2,11 @@ package org.gradlex.plugins.analyzer.analysis
 
 class TaskImplementationDoesNotOverrideGetterTest extends AbstractAnalysisSpec {
     def "can detect type overriding getter"() {
-        compileGroovy("""
+        compileJava("""
             class CustomTask extends org.gradle.api.tasks.SourceTask {
                 @Override
-                org.gradle.api.file.FileTree getSource() {
-                    System.out.println("Overriding")
-                    return super.getSource()
+                public org.gradle.api.file.FileTree getSource() {
+                    return super.getSource();
                 }
             }
         """)
@@ -17,7 +16,7 @@ class TaskImplementationDoesNotOverrideGetterTest extends AbstractAnalysisSpec {
 
         then:
         reports == [
-            "WARN: The getter getSource() in LCustomTask overrides Gradle API from Lorg/gradle/api/tasks/SourceTask"
+            "INFO: The getter getSource() in LCustomTask overrides Gradle API from Lorg/gradle/api/tasks/SourceTask, but calls only super()"
         ]
     }
 }
