@@ -74,11 +74,11 @@ abstract class PluginAnalyzerTask : DefaultTask() {
         report.createNewFile()
 
         report.appendText("## ${pluginId.get()}\n\n")
-        report.appendText("Classpath:\n")
-        classpath.files.forEach { entry ->
-            report.appendText("- `$entry\n")
-        }
-        report.appendText("\n")
+//        report.appendText("Classpath:\n")
+//        classpath.files.forEach { entry ->
+//            report.appendText("- `$entry\n")
+//        }
+//        report.appendText("\n")
 
         val analyzer = DefaultAnalyzer(files) { messageLevel, message ->
             if (messageLevel.toInt() >= level.get().toInt()) {
