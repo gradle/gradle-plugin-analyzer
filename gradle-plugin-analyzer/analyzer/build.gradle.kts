@@ -22,6 +22,12 @@ configurations {
     create("kotlinRuntime")
 }
 
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
 dependencies {
     implementation("com.google.code.findbugs:jsr305:3.0.2")
 
