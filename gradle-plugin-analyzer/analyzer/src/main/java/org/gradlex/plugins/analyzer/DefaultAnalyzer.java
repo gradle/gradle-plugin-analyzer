@@ -83,7 +83,17 @@ public class DefaultAnalyzer implements Analyzer {
 
             @Override
             public IClass lookup(String name) {
-                return hierarchy.lookupClass(reference(name));
+                switch (name) {
+                    case "B", "C", "D", "F", "I", "J", "S", "Z", "V" -> {
+                        return null;
+                    }
+                }
+
+                IClass iClass = hierarchy.lookupClass(reference(name));
+                if (iClass == null) {
+                    throw new IllegalStateException("Cannot find class: " + name);
+                }
+                return iClass;
             }
 
             @Override

@@ -5,6 +5,8 @@ import com.ibm.wala.ipa.cha.ClassHierarchy;
 import com.ibm.wala.types.TypeReference;
 import org.slf4j.event.Level;
 
+import javax.annotation.Nullable;
+
 public interface Analysis {
     void execute(AnalysisContext context);
 
@@ -13,6 +15,10 @@ public interface Analysis {
 
         TypeReference reference(String name);
 
+        /**
+         * Returns {@code null} for primitives and `V`.
+         */
+        @Nullable
         IClass lookup(String name);
 
         void report(Level level, String message);
