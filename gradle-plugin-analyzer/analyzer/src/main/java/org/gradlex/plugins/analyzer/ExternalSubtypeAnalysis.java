@@ -11,7 +11,7 @@ public abstract class ExternalSubtypeAnalysis implements Analysis {
 
     @Override
     public void execute(AnalysisContext context) {
-        context.getHierarchy().getImplementors(context.reference(typeName)).stream()
+        context.getHierarchy().getImplementors(context.findReference(typeName)).stream()
             .filter(TypeOrigin::isExternal)
             .forEach(type -> analyzeType(type, context));
     }

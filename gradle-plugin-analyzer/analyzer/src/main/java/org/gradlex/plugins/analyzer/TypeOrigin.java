@@ -5,6 +5,7 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.ibm.wala.classLoader.IClass;
+import com.ibm.wala.classLoader.IMethod;
 import com.ibm.wala.types.TypeName;
 
 import javax.annotation.Nonnull;
@@ -120,6 +121,10 @@ public enum TypeOrigin {
 
     public static boolean isGradleApi(IClass clazz) {
         return of(clazz).isGradleApi();
+    }
+
+    public static boolean isInternalGradleApi(IClass clazz) {
+        return of(clazz) == INTERNAL;
     }
 
     public static boolean isExternal(IClass clazz) {

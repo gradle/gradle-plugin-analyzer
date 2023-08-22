@@ -165,4 +165,22 @@ class AbstractTaskImplementationDoesNotOverrideMethodTest extends AbstractAnalys
             "WARN: The method setEnabled() in LCustomTask overrides Gradle API from Lorg/gradle/api/DefaultTask with custom logic: Instruction #4 expected to be ReturnInstruction but it was Constant(Ljava/lang/String;,\"Additional logic\")"
         ]
     }
+
+    def "can detect overriding method with additional null check on the return value in Kotlin code"() {
+        compileKotlin("""
+            class CustomTask : org.gradle.api.tasks.SourceTask() {
+                // Forcing the return type from FileTree? to FileTree
+                // causes an additional null check to be added in the byte code
+                override fun getSource(): org.gradle.api.file.FileTree = super.getSource()
+            }
+        """)
+
+        when:
+        analyzer.analyze(analysis)
+
+        then:
+        reports == [
+            "WARN: The method getSource() in LCustomTask overrides Gradle API from Lorg/gradle/api/tasks/SourceTask with custom logic: Instruction #3 expected to be ReturnInstruction but it was Dup(1,0)"
+        ]
+    }
 }

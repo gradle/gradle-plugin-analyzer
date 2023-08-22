@@ -73,17 +73,23 @@ public class DefaultAnalyzer implements Analyzer {
             }
 
             @Override
-            public TypeReference reference(String name) {
-                TypeReference result = TypeReference.find(scope.getApplicationLoader(), name);
-                if (result == null) {
-                    throw new IllegalStateException("Missing type: " + name);
-                }
-                return result;
+            public TypeReference findReference(String name) {
+                String normalizedTypeName = WalaUtil.normalizeTypeName(name);
+                return TypeReference.find(scope.getApplicationLoader(), normalizedTypeName);
             }
 
             @Override
-            public IClass lookup(String name) {
-                return hierarchy.lookupClass(reference(name));
+            public IClass findClass(String name) {
+                switch (name) {
+                    case "B", "C", "D", "F", "I", "J", "S", "Z", "V" -> {
+                        return null;
+                    }
+                }
+
+                TypeReference reference = findReference(name);
+                return reference != null
+                    ? hierarchy.lookupClass(reference)
+                    : null;
             }
 
             @Override
