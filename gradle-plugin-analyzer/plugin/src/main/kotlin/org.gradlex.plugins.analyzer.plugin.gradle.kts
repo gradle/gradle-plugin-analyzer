@@ -1,5 +1,8 @@
-import com.google.common.collect.MultimapBuilder
-import org.gradle.api.internal.lambdas.SerializableLambdas
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.decodeFromStream
+import kotlinx.serialization.json.encodeToStream
 import org.gradle.internal.Actions
 import org.gradlex.plugins.analyzer.DefaultAnalyzer
 import org.gradlex.plugins.analyzer.analysis.TaskImplementationDoesNotExtendDefaultTask
@@ -7,21 +10,20 @@ import org.gradlex.plugins.analyzer.analysis.TaskImplementationDoesNotOverrideGe
 import org.gradlex.plugins.analyzer.analysis.TaskImplementationDoesNotOverrideSetter
 import org.jsoup.Jsoup
 import org.slf4j.event.Level
-import java.io.Serializable
+import java.io.FileInputStream
+import java.io.FileOutputStream
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.nio.file.Path
-import java.util.concurrent.CompletableFuture
-import kotlin.streams.toList
 
 plugins {
     // Required since we are resolving JVM artifacts
     `jvm-ecosystem`
 }
 
-open class AnalyzedPlugin(val pluginId: String) : Comparable<AnalyzedPlugin>, Named, Serializable {
+open class AnalyzedPlugin(val pluginId: String) : Comparable<AnalyzedPlugin>, Named {
 
     var artifact: String? = null
 
@@ -32,7 +34,7 @@ open class AnalyzedPlugin(val pluginId: String) : Comparable<AnalyzedPlugin>, Na
     override fun compareTo(other: AnalyzedPlugin) = pluginId.compareTo(other.pluginId)
 }
 
-open class PluginAnalyzerExtension(objects: ObjectFactory) : Serializable {
+open class PluginAnalyzerExtension(objects: ObjectFactory) {
     val analyzedPlugins = objects.domainObjectContainer(AnalyzedPlugin::class.java)
 
     fun plugin(artifact: String, configuration: Action<in AnalyzedPlugin> = Actions.doNothing()) {
@@ -40,18 +42,11 @@ open class PluginAnalyzerExtension(objects: ObjectFactory) : Serializable {
     }
 }
 
+@Serializable
+data class Message(val level: String, val message: String)
+
 @CacheableTask
 abstract class PluginAnalyzerTask : DefaultTask() {
-    @get:Input
-    abstract val pluginIds: ListProperty<String>
-
-    @get:Input
-    abstract val pluginArtifact: Property<String>
-
-    @get:Input
-    @get:Optional
-    abstract val pluginSourceUrl: Property<String>
-
     @get:Classpath
     abstract val classpath: ConfigurableFileCollection
 
@@ -68,6 +63,7 @@ abstract class PluginAnalyzerTask : DefaultTask() {
         level.convention(Level.INFO)
     }
 
+    @OptIn(ExperimentalSerializationApi::class)
     @TaskAction
     fun execute() {
         val files = mutableListOf<Path>()
@@ -76,21 +72,22 @@ abstract class PluginAnalyzerTask : DefaultTask() {
             .map(File::toPath)
             .forEach(files::add)
 
-        val report = reportFile.get().asFile
-        report.delete()
-        report.createNewFile()
-        report.appendText("## ${formatPlugin(pluginArtifact.get(), pluginSourceUrl.orNull)}\n\n")
-        report.appendText("Plugin IDs: `${pluginIds.get().joinToString("`, `")}`\n\n")
 
+        val messages = mutableListOf<Message>()
         val analyzer = DefaultAnalyzer(files) { messageLevel, message ->
             if (messageLevel.toInt() >= level.get().toInt()) {
-                report.appendText("- $messageLevel: $message\n")
+                messages.add(Message(messageLevel.name, message))
             }
         }
 
         analyzer.analyze(TaskImplementationDoesNotExtendDefaultTask())
         analyzer.analyze(TaskImplementationDoesNotOverrideSetter())
         analyzer.analyze(TaskImplementationDoesNotOverrideGetter())
+
+        val report = reportFile.get().asFile
+        FileOutputStream(report).use { stream ->
+            Json.encodeToStream(messages, stream)
+        }
     }
 
     fun formatPlugin(artifact: String, sourceUrl: String?): String {
@@ -99,6 +96,36 @@ abstract class PluginAnalyzerTask : DefaultTask() {
             return "[$title](${sourceUrl})"
         } else {
             return title
+        }
+    }
+}
+
+@CacheableTask
+abstract class FormatReportTask : DefaultTask() {
+    @get:Input
+    abstract val pluginId : Property<String>
+
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.NONE)
+    abstract val jsonReport : RegularFileProperty
+
+    @get:OutputFile
+    abstract val markdownReport : RegularFileProperty
+
+    @OptIn(ExperimentalSerializationApi::class)
+    @TaskAction
+    fun execute() {
+        val inputFile = jsonReport.get().asFile
+        val outputFile = markdownReport.get().asFile
+        outputFile.delete()
+        outputFile.createNewFile()
+
+        outputFile.appendText("## [`${pluginId.get()}`](https://plugins.gradle.org/plugin/${pluginId.get()})\n\n")
+
+        FileInputStream(inputFile).use { stream ->
+            Json.decodeFromStream<List<Message>>(stream)
+        }.forEach { message ->
+            outputFile.writeText("- ${message.level}: ${message.message}\n")
         }
     }
 }
@@ -178,52 +205,29 @@ val analyzePluginsTask = tasks.register<PluginAnalysisCollectorTask>("analyzePlu
 val pluginAnalyzer = extensions.create<PluginAnalyzerExtension>("pluginAnalyzer")
 
 afterEvaluate {
-    // Resolve artifacts
-    val pluginInfoFutures = pluginAnalyzer.analyzedPlugins.stream()
-        .map { analyzedPlugin ->
-            val artifact: String? = analyzedPlugin.artifact
-            if (artifact == null) {
-                CompletableFuture.supplyAsync {
-                    val info = Util.lookupPlugin(analyzedPlugin.pluginId)
-                    analyzedPlugin.artifact = info.artifact
-                    Pair(info, analyzedPlugin)
-                }
-            } else {
-                CompletableFuture.completedFuture(Pair(PluginInfo(artifact, null), analyzedPlugin))
-            }
-        }
-        .toList()
-    CompletableFuture.allOf(*pluginInfoFutures.toTypedArray()).join()
-
-    val analyzedPlugins = MultimapBuilder.treeKeys().arrayListValues().build<PluginInfo, AnalyzedPlugin>()
-    pluginInfoFutures.forEach {
-        val pluginInfo = it.get().first
-        val plugin = it.get().second
-        analyzedPlugins.put(pluginInfo, plugin)
-    }
-
     pluginAnalyzer.analyzedPlugins.forEach { analyzedPlugin ->
-    }
-
-    // Must run in afterEvaluate to get the actual configuration of the elements in the container; all() triggers too early
-    analyzedPlugins.asMap().forEach { info, plugins ->
-        val simplifiedName = info.artifact.replace(':', '_').replace('.', '_')
+        val simplifiedName = analyzedPlugin.pluginId.replace(':', '_').replace('.', '_')
 
         val config = configurations.create("conf_$simplifiedName")
         configureRequestAttributes(config)
-        config.dependencies.add(dependencies.create(info.artifact))
+        val artifact = analyzedPlugin.artifact
+            ?: (analyzedPlugin.pluginId + ":" + analyzedPlugin.pluginId + ".gradle.plugin:latest.release")
+        config.dependencies.add(dependencies.create(artifact))
 
-        val task = tasks.register<PluginAnalyzerTask>("analyze_$simplifiedName") {
-            pluginIds = plugins.map { it.pluginId }
-            pluginArtifact = info.artifact
-            pluginSourceUrl = info.sourceUrl
+        val analyzeTask = tasks.register<PluginAnalyzerTask>("analyze_$simplifiedName") {
             classpath = config
             gradleApi = project.file("${gradle.gradleUserHomeDir}/caches/${gradle.gradleVersion}/generated-gradle-jars/gradle-api-${gradle.gradleVersion}.jar")
-            reportFile = project.layout.buildDirectory.file("plugin-analysis/plugins/report-${simplifiedName}.md")
+            reportFile = project.layout.buildDirectory.file("plugin-analysis/plugins/report-${simplifiedName}.json")
+        }
+
+        val formatterTask = tasks.register<FormatReportTask>("format_$simplifiedName") {
+            pluginId = analyzedPlugin.pluginId
+            jsonReport = analyzeTask.flatMap { it.reportFile }
+            markdownReport = project.layout.buildDirectory.file("plugin-analysis/plugins/report-${simplifiedName}.md")
         }
 
         analyzePluginsTask.configure {
-            inputReports.from(task.flatMap { it.reportFile })
+            inputReports.from(formatterTask.flatMap { it.markdownReport })
         }
     }
 }
