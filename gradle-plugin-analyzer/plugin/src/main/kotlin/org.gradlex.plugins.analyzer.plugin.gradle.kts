@@ -203,15 +203,14 @@ val analyzePluginsTask = tasks.register<PluginAnalysisCollectorTask>("analyzePlu
 val pluginAnalyzer = extensions.create<PluginAnalyzerExtension>("pluginAnalyzer")
 
 pluginAnalyzer.analyzedPlugins.all {
-    val analyzedPlugin = this
-    val simplifiedName = analyzedPlugin.pluginId.replace(':', '_').replace('.', '_')
+    val simplifiedName = pluginId.replace(':', '_').replace('.', '_')
 
     val config = configurations.create("conf_$simplifiedName")
     configureRequestAttributes(config)
 
-    val defaultCoordinates = analyzedPlugin.pluginId + ":" + analyzedPlugin.pluginId + ".gradle.plugin:latest.release"
+    val defaultCoordinates = "$pluginId:$pluginId.gradle.plugin:latest.release"
     config.dependencies.addLater(
-        analyzedPlugin.coordinates.orElse(defaultCoordinates).map { dependencyFactory.create(it) }
+        coordinates.orElse(defaultCoordinates).map { dependencyFactory.create(it) }
     )
 
     val analyzeTask = tasks.register<PluginAnalyzerTask>("analyze_$simplifiedName") {
@@ -220,8 +219,9 @@ pluginAnalyzer.analyzedPlugins.all {
         reportFile = project.layout.buildDirectory.file("plugin-analysis/plugins/report-${simplifiedName}.json")
     }
 
+    val analyzedId = pluginId
     val formatterTask = tasks.register<FormatReportTask>("format_$simplifiedName") {
-        pluginId = analyzedPlugin.pluginId
+        pluginId = analyzedId
         jsonReport = analyzeTask.flatMap { it.reportFile }
         markdownReport = project.layout.buildDirectory.file("plugin-analysis/plugins/report-${simplifiedName}.md")
     }
