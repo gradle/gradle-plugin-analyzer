@@ -74,7 +74,7 @@ public class DefaultAnalyzer implements Analyzer {
 
             @Override
             public TypeReference reference(String name) {
-                TypeReference result = TypeReference.find(scope.getApplicationLoader(), name);
+                TypeReference result = TypeReference.find(scope.getApplicationLoader(), WalaUtil.normalizeTypeName(name));
                 if (result == null) {
                     throw new IllegalStateException("Missing type: " + name);
                 }

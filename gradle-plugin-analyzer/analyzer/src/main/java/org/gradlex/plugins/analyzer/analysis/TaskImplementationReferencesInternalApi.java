@@ -21,8 +21,10 @@ import com.ibm.wala.shrike.shrikeBT.ITypeTestInstruction;
 import com.ibm.wala.shrike.shrikeBT.IUnaryOpInstruction;
 import com.ibm.wala.shrike.shrikeBT.NewInstruction;
 import com.ibm.wala.shrike.shrikeBT.ReturnInstruction;
+import com.ibm.wala.types.Selector;
 import org.gradlex.plugins.analyzer.ExternalSubtypeAnalysis;
 import org.gradlex.plugins.analyzer.TypeOrigin;
+import org.gradlex.plugins.analyzer.WalaUtil;
 
 import java.util.ArrayDeque;
 import java.util.HashSet;
@@ -45,13 +47,15 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
         checkHierarchy(type, context);
         type.getDeclaredMethods()
             .forEach(method -> instructions(method)
-                .flatMap(TaskImplementationReferencesInternalApi::getReferencedTypeNames)
-                .map(TaskImplementationReferencesInternalApi::normalizeTypeName)
+                .flatMap(instruction -> getReferencedTypeNames(context, instruction))
+                .map(WalaUtil::normalizeTypeName)
                 .map(context::lookup)
                 .filter(Objects::nonNull)
                 .filter(TypeOrigin::isInternalGradleApi)
-                .forEach(internalType -> context.report(WARN, String.format("Method %s in %s references internal Gradle type: %s",
-                    method, type.getName(), internalType.getName()))));
+                .distinct()
+                .sorted()
+                .forEach(internalType -> context.report(WARN, String.format("Method %s references internal Gradle type: %s",
+                    method.getSignature(), internalType.getName()))));
     }
 
     private void checkHierarchy(IClass baseType, AnalysisContext context) {
@@ -89,7 +93,7 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
             type.getDirectInterfaces().stream());
     }
 
-    private static Stream<String> getReferencedTypeNames(IInstruction instruction) {
+    private static Stream<String> getReferencedTypeNames(AnalysisContext context, IInstruction instruction) {
         System.out.println("> " + instruction);
         if (instruction instanceof IArrayLoadInstruction iArrayLoad) {
             return Stream.of(iArrayLoad.getType());
@@ -108,7 +112,30 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
         } else if (instruction instanceof IInstanceofInstruction iInst) {
             return Stream.of(iInst.getType());
         } else if (instruction instanceof IInvokeInstruction iInvoke) {
-            return Stream.of(iInvoke.getClassType());
+            String invokedTypeName = iInvoke.getClassType();
+            IClass invokedType = context.lookup(invokedTypeName);
+            if (invokedType == null) {
+                return Stream.empty();
+            }
+            var builder = Stream.<String>builder()
+                .add(invokedTypeName);
+
+            var method = context.getHierarchy().resolveMethod(invokedType, Selector.make(iInvoke.getMethodName() + iInvoke.getMethodSignature()));
+            if (method == null) {
+                throw new IllegalStateException("Cannot find method: " + invokedTypeName + "." + iInvoke.getMethodName() + iInvoke.getMethodSignature());
+            }
+
+            // Add the type the method is declared in
+            builder.add(method.getDeclaringClass().getName().toString());
+
+            // Add return type
+            builder.add(method.getReturnType().getName().toString());
+
+            // Add parameter types
+            for (int iParam = 0; iParam < method.getNumberOfParameters(); iParam++) {
+                builder.add(method.getParameterType(iParam).getName().toString());
+            }
+            return builder.build();
         } else if (instruction instanceof ILoadInstruction iLoad) {
             return Stream.of(iLoad.getType());
         } else if (instruction instanceof IPutInstruction iPut) {
@@ -135,11 +162,5 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
         } else {
             return Stream.empty();
         }
-    }
-
-    private static String normalizeTypeName(String typeName) {
-        return typeName.endsWith(";")
-            ? typeName.substring(0, typeName.length() - 1)
-            : typeName;
     }
 }

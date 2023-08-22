@@ -28,7 +28,7 @@ class TaskImplementationReferencesInternalApiTest extends AbstractAnalysisSpec {
 
         then:
         reports == [
-            "WARN: Method < Application, LCustomTask, <init>()V > in LCustomTask references internal Gradle type: Lorg/gradle/jvm/toolchain/internal/task/ShowToolchainsTask",
+            "WARN: Method CustomTask.<init>()V references internal Gradle type: Lorg/gradle/jvm/toolchain/internal/task/ShowToolchainsTask",
             "WARN: Type LCustomTask extends internal Gradle API Lorg/gradle/jvm/toolchain/internal/task/ShowToolchainsTask",
         ]
     }
@@ -49,6 +49,8 @@ class TaskImplementationReferencesInternalApiTest extends AbstractAnalysisSpec {
         analyzer.analyze(new TaskImplementationReferencesInternalApi())
 
         then:
-        reports == []
+        reports == [
+            "WARN: Method CustomTask.execute()V references internal Gradle type: Lorg/gradle/api/internal/AbstractTask"
+        ]
     }
 }
