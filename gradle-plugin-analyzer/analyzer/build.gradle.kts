@@ -14,10 +14,12 @@ repositories {
 }
 
 val walaVersion = "1.6.2"
+val kotlinVersion = "1.8.22"
 
 configurations {
     create("pluginUnderTest")
     create("groovyRuntime")
+    create("kotlinRuntime")
 }
 
 dependencies {
@@ -35,9 +37,12 @@ dependencies {
 
     implementation("com.google.guava:guava:32.1.2-jre")
 
+    implementation("org.jetbrains.kotlin:kotlin-compiler-embeddable:$kotlinVersion")
+
     "pluginUnderTest"("org.xbib.gradle.plugin:gradle-plugin-shadow:3.0.0")
 
     "groovyRuntime"(localGroovy())
+    "kotlinRuntime"("org.jetbrains.kotlin:kotlin-stdlib:$kotlinVersion")
 }
 
 testing {
@@ -55,5 +60,6 @@ tasks.test {
 //    systemProperty("plugin-files", tasks.compileJava.get().destinationDirectory.get().asFile.absoluteFile)
     systemProperty("gradle-api", "${gradle.gradleUserHomeDir}/caches/${gradle.gradleVersion}/generated-gradle-jars/gradle-api-${gradle.gradleVersion}.jar")
     systemProperty("local-groovy", configurations["groovyRuntime"].files.map { it.absolutePath }.joinToString(File.pathSeparator))
+    systemProperty("local-kotlin", configurations["kotlinRuntime"].files.map { it.absolutePath }.joinToString(File.pathSeparator))
     maxHeapSize = "4096m"
 }
