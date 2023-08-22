@@ -150,7 +150,7 @@ abstract class FormatReportTask : DefaultTask() {
                     writer.println("- ${message.level}: ${message.message}")
                 }
             } else {
-                writer.println("No messages generated.")
+                writer.println("No messages generated. Good plugin!")
             }
         }
     }
