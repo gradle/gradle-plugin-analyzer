@@ -83,7 +83,7 @@ class AbstractAnalysisSpec extends Specification {
         args.with {
             freeArgs = [sourceFile.absolutePath]
             destination = targetDirectory.absolutePath
-            classpath = [localGroovy, localKotlin, gradleApi, *files].join(File.pathSeparator)
+            classpath = [localGroovy, localKotlin, gradleApi].join(File.pathSeparator)
             // We are passing it in via the classpath
             noStdlib = true
         }
