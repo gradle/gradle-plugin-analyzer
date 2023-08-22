@@ -88,9 +88,11 @@ class AbstractAnalysisSpec extends Specification {
             noStdlib = true
         }
 
-        def messageCollector = new PrintingMessageCollector(System.err, MessageRenderer.GRADLE_STYLE, false)
-        def services = Services.EMPTY
-        def exitCode = new K2JVMCompiler().execImpl(messageCollector, services, args)
+        def exitCode = new K2JVMCompiler()
+            .execImpl(
+                new PrintingMessageCollector(System.err, MessageRenderer.GRADLE_STYLE, false),
+                Services.EMPTY,
+                args)
         if (exitCode != ExitCode.OK) {
             throw new RuntimeException("Compilation failure: $exitCode")
         }
