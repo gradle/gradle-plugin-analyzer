@@ -6,11 +6,16 @@ import org.gradlex.plugins.analyzer.Analyzer
 import org.gradlex.plugins.analyzer.DefaultAnalyzer
 import spock.lang.Specification
 
+import javax.tools.JavaCompiler
+import javax.tools.JavaFileObject
+import javax.tools.SimpleJavaFileObject
+import javax.tools.ToolProvider
 import java.nio.file.Path
 import java.nio.file.Paths
 
 class AbstractAnalysisSpec extends Specification {
     String gradleApi
+    String localGroovy
     List<String> reports
     List<Path> files
     Analyzer analyzer
@@ -20,6 +25,7 @@ class AbstractAnalysisSpec extends Specification {
         assert targetDirectory.deleteDir()
 
         gradleApi = System.getProperty("gradle-api")
+        localGroovy = System.getProperty("local-groovy")
         files = [Paths.get(gradleApi), targetDirectory.toPath()]
         reports = []
     }
@@ -32,6 +38,29 @@ class AbstractAnalysisSpec extends Specification {
 
     protected List<String> getReports() {
         ImmutableList.sortedCopyOf(reports)
+    }
+
+    protected void compileJava(String source) {
+        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler()
+
+        JavaFileObject file = new SimpleJavaFileObject(URI.create("string:///HelloWorld.java"), JavaFileObject.Kind.SOURCE) {
+            @Override
+            CharSequence getCharContent(boolean ignoreEncodingErrors) {
+                return source
+            }
+        }
+
+        assert compiler.getTask(
+            null,
+            null,
+            null,
+            ImmutableList.of(
+                "-d", targetDirectory.absolutePath,
+                "-classpath", localGroovy + File.pathSeparator + gradleApi
+            ),
+            null,
+            ImmutableList.of(file))
+            .call()
     }
 
     protected void compileGroovy(String source) {

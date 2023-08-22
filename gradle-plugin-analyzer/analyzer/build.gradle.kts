@@ -17,6 +17,7 @@ val walaVersion = "1.6.2"
 
 configurations {
     create("pluginUnderTest")
+    create("groovyRuntime")
 }
 
 dependencies {
@@ -34,7 +35,9 @@ dependencies {
 
     implementation("com.google.guava:guava:32.1.2-jre")
 
-     "pluginUnderTest"("org.xbib.gradle.plugin:gradle-plugin-shadow:3.0.0")
+    "pluginUnderTest"("org.xbib.gradle.plugin:gradle-plugin-shadow:3.0.0")
+
+    "groovyRuntime"(localGroovy())
 }
 
 testing {
@@ -51,5 +54,6 @@ tasks.test {
     systemProperty("plugin-files", project.configurations["pluginUnderTest"].files.stream().map(File::getAbsolutePath).collect(Collectors.joining(File.pathSeparator)))
 //    systemProperty("plugin-files", tasks.compileJava.get().destinationDirectory.get().asFile.absoluteFile)
     systemProperty("gradle-api", "${gradle.gradleUserHomeDir}/caches/${gradle.gradleVersion}/generated-gradle-jars/gradle-api-${gradle.gradleVersion}.jar")
+    systemProperty("local-groovy", configurations["groovyRuntime"].files.map { it.absolutePath }.joinToString(File.pathSeparator))
     maxHeapSize = "4096m"
 }
