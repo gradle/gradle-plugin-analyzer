@@ -96,7 +96,6 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
     }
 
     private static Stream<String> getReferencedTypeNames(AnalysisContext context, IInstruction instruction) {
-        System.out.println("> " + instruction);
         if (instruction instanceof IArrayLoadInstruction iArrayLoad) {
             return Stream.of(iArrayLoad.getType());
         } else if (instruction instanceof IArrayStoreInstruction iArrayStore) {

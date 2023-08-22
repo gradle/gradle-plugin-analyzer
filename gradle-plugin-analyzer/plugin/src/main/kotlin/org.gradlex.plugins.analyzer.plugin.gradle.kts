@@ -13,11 +13,11 @@ import org.jsoup.Jsoup
 import org.slf4j.event.Level
 import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.io.PrintWriter
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
-import java.nio.file.Path
 
 plugins {
     // Required since we are resolving JVM artifacts
@@ -68,43 +68,55 @@ abstract class PluginAnalyzerTask : DefaultTask() {
         level.convention(Level.INFO)
     }
 
-    @OptIn(ExperimentalSerializationApi::class)
-    @TaskAction
-    fun execute() {
-        val files = mutableListOf<Path>()
-        runtime.files.stream()
-            .map(File::toPath)
-            .forEach(files::add)
-        classpath.files.stream()
-            .map(File::toPath)
-            .forEach(files::add)
+    @get:Inject
+    abstract val workerExecutor: WorkerExecutor
 
+    abstract class Work : WorkAction<Work.Params> {
+        interface Params : WorkParameters {
+            val classpath: ConfigurableFileCollection
 
-        val messages = mutableListOf<Message>()
-        val analyzer = DefaultAnalyzer(files) { messageLevel, message ->
-            if (messageLevel.toInt() >= level.get().toInt()) {
-                messages.add(Message(messageLevel.name, message))
-            }
+            val runtime: ConfigurableFileCollection
+
+            val reportFile: RegularFileProperty
+
+            val level: Property<Level>
         }
 
-        analyzer.analyze(TaskImplementationDoesNotExtendDefaultTask())
-        analyzer.analyze(TaskImplementationDoesNotOverrideSetter())
-        analyzer.analyze(TaskImplementationDoesNotOverrideGetter())
-        analyzer.analyze(TaskImplementationReferencesInternalApi())
+        @OptIn(ExperimentalSerializationApi::class)
+        override fun execute() {
+            val files = parameters.runtime.files.map(File::toPath) +
+                parameters.classpath.files.map(File::toPath)
+            val messages = mutableListOf<Message>()
+            val analyzer = DefaultAnalyzer(files) { messageLevel, message ->
+                if (messageLevel.toInt() >= parameters.level.get().toInt()) {
+                    messages.add(Message(messageLevel.name, message))
+                }
+            }
 
-        val report = reportFile.get().asFile
-        FileOutputStream(report).use { stream ->
-            Json.encodeToStream(messages, stream)
+            analyzer.analyze(TaskImplementationDoesNotExtendDefaultTask())
+            analyzer.analyze(TaskImplementationDoesNotOverrideSetter())
+            analyzer.analyze(TaskImplementationDoesNotOverrideGetter())
+            analyzer.analyze(TaskImplementationReferencesInternalApi())
+
+            val report = parameters.reportFile.get().asFile
+            FileOutputStream(report).use { stream ->
+                Json.encodeToStream(messages, stream)
+            }
         }
     }
 
-    fun formatPlugin(artifact: String, sourceUrl: String?): String {
-        val title = "`${artifact}`"
-        if (sourceUrl != null) {
-            return "[$title](${sourceUrl})"
-        } else {
-            return title
-        }
+    @TaskAction
+    fun execute() {
+        val task = this
+        workerExecutor.processIsolation()
+            .submit(Work::class) {
+                classpath = task.classpath
+                runtime = task.runtime
+                reportFile = task.reportFile
+                level = task.level
+            }
+
+        workerExecutor.await()
     }
 }
 
@@ -125,15 +137,21 @@ abstract class FormatReportTask : DefaultTask() {
     fun execute() {
         val inputFile = jsonReport.get().asFile
         val outputFile = markdownReport.get().asFile
-        outputFile.delete()
-        outputFile.createNewFile()
 
-        outputFile.appendText("## [`${pluginId.get()}`](https://plugins.gradle.org/plugin/${pluginId.get()})\n\n")
+        PrintWriter(outputFile).use { writer ->
+            writer.println("## [`${pluginId.get()}`](https://plugins.gradle.org/plugin/${pluginId.get()})")
+            writer.println()
 
-        FileInputStream(inputFile).use { stream ->
-            Json.decodeFromStream<List<Message>>(stream)
-        }.forEach { message ->
-            outputFile.writeText("- ${message.level}: ${message.message}\n")
+            val messages = FileInputStream(inputFile).use { stream ->
+                Json.decodeFromStream<List<Message>>(stream)
+            }
+            if (messages.isNotEmpty()) {
+                messages.forEach { message ->
+                    writer.println("- ${message.level}: ${message.message}")
+                }
+            } else {
+                writer.println("No messages generated.")
+            }
         }
     }
 }
@@ -150,11 +168,10 @@ abstract class PluginAnalysisCollectorTask : DefaultTask() {
     @TaskAction
     fun execute() {
         val report = aggregateReportFile.get().asFile
-        report.delete()
-        report.createNewFile()
-
-        inputReports.files.toSortedSet().forEach { inputReport ->
-            report.appendText(inputReport.readText())
+        PrintWriter(report).use { writer ->
+            inputReports.files.forEach { inputReport ->
+                writer.println(inputReport.readText())
+            }
         }
 
         println("Plugin analysis report: " + report.absolutePath)
