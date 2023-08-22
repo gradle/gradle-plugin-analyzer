@@ -25,7 +25,7 @@ public class TaskImplementationDoesNotExtendDefaultTask extends ExternalSubtypeA
             context.report(DEBUG, String.format("Type %s is an interface", type.getName()));
             return;
         }
-        IClass defaultTaskType = context.lookup("Lorg/gradle/api/DefaultTask");
+        IClass defaultTaskType = context.getClass("Lorg/gradle/api/DefaultTask");
         // Walk type hierarchy
         Stream.iterate(type, Objects::nonNull, IClass::getSuperclass)
             // Look for the most immediate superclass from Gradle API

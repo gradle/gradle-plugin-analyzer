@@ -8,6 +8,7 @@ import org.gradlex.plugins.analyzer.DefaultAnalyzer
 import org.gradlex.plugins.analyzer.analysis.TaskImplementationDoesNotExtendDefaultTask
 import org.gradlex.plugins.analyzer.analysis.TaskImplementationDoesNotOverrideGetter
 import org.gradlex.plugins.analyzer.analysis.TaskImplementationDoesNotOverrideSetter
+import org.gradlex.plugins.analyzer.analysis.TaskImplementationReferencesInternalApi
 import org.jsoup.Jsoup
 import org.slf4j.event.Level
 import java.io.FileInputStream
@@ -21,6 +22,12 @@ import java.nio.file.Path
 plugins {
     // Required since we are resolving JVM artifacts
     `jvm-ecosystem`
+}
+
+val gradleRuntime = configurations.create("gradleRuntime")
+
+dependencies {
+    gradleRuntime(gradleApi())
 }
 
 abstract class AnalyzedPlugin(val pluginId: String) : Comparable<AnalyzedPlugin>, Named {
@@ -49,7 +56,7 @@ abstract class PluginAnalyzerTask : DefaultTask() {
     abstract val classpath: ConfigurableFileCollection
 
     @get:Classpath
-    abstract val gradleApi: RegularFileProperty
+    abstract val runtime: ConfigurableFileCollection
 
     @get:OutputFile
     abstract val reportFile: RegularFileProperty
@@ -65,7 +72,9 @@ abstract class PluginAnalyzerTask : DefaultTask() {
     @TaskAction
     fun execute() {
         val files = mutableListOf<Path>()
-        files.add(gradleApi.get().asFile.toPath())
+        runtime.files.stream()
+            .map(File::toPath)
+            .forEach(files::add)
         classpath.files.stream()
             .map(File::toPath)
             .forEach(files::add)
@@ -81,6 +90,7 @@ abstract class PluginAnalyzerTask : DefaultTask() {
         analyzer.analyze(TaskImplementationDoesNotExtendDefaultTask())
         analyzer.analyze(TaskImplementationDoesNotOverrideSetter())
         analyzer.analyze(TaskImplementationDoesNotOverrideGetter())
+        analyzer.analyze(TaskImplementationReferencesInternalApi())
 
         val report = reportFile.get().asFile
         FileOutputStream(report).use { stream ->
@@ -101,14 +111,14 @@ abstract class PluginAnalyzerTask : DefaultTask() {
 @CacheableTask
 abstract class FormatReportTask : DefaultTask() {
     @get:Input
-    abstract val pluginId : Property<String>
+    abstract val pluginId: Property<String>
 
     @get:InputFile
     @get:PathSensitive(PathSensitivity.NONE)
-    abstract val jsonReport : RegularFileProperty
+    abstract val jsonReport: RegularFileProperty
 
     @get:OutputFile
-    abstract val markdownReport : RegularFileProperty
+    abstract val markdownReport: RegularFileProperty
 
     @OptIn(ExperimentalSerializationApi::class)
     @TaskAction
@@ -215,7 +225,7 @@ pluginAnalyzer.analyzedPlugins.all {
 
     val analyzeTask = tasks.register<PluginAnalyzerTask>("analyze_$simplifiedName") {
         classpath = config
-        gradleApi = project.file("${gradle.gradleUserHomeDir}/caches/${gradle.gradleVersion}/generated-gradle-jars/gradle-api-${gradle.gradleVersion}.jar")
+        runtime.from(gradleRuntime)
         reportFile = project.layout.buildDirectory.file("plugin-analysis/plugins/report-${simplifiedName}.json")
     }
 

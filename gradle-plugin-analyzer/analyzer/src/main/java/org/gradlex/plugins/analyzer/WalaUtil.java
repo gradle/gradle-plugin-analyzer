@@ -24,7 +24,13 @@ public class WalaUtil {
 
     public static Stream<IInstruction> instructions(IMethod method) {
         try {
-            return Arrays.stream(((ShrikeCTMethod) method).getInstructions());
+            IInstruction[] instructions = ((ShrikeCTMethod) method).getInstructions();
+            if (instructions != null) {
+                return Arrays.stream(instructions);
+            } else {
+                // TODO Why can't we sometimes get the instructions?
+                return Stream.of();
+            }
         } catch (InvalidClassFileException e) {
             throw new RuntimeException(e);
         }

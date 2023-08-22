@@ -6,6 +6,7 @@ import com.ibm.wala.types.TypeReference;
 import org.slf4j.event.Level;
 
 import javax.annotation.Nullable;
+import java.util.Objects;
 
 public interface Analysis {
     void execute(AnalysisContext context);
@@ -13,13 +14,18 @@ public interface Analysis {
     interface AnalysisContext {
         ClassHierarchy getHierarchy();
 
-        TypeReference reference(String name);
+        @Nullable
+        TypeReference findReference(String name);
 
         /**
          * Returns {@code null} for primitives and `V`.
          */
         @Nullable
-        IClass lookup(String name);
+        IClass findClass(String name);
+
+        default IClass getClass(String name) {
+            return Objects.requireNonNull(findClass(name));
+        }
 
         void report(Level level, String message);
     }

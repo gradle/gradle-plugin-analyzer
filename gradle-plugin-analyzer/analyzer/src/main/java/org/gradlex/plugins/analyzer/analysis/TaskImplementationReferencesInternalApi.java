@@ -27,11 +27,13 @@ import org.gradlex.plugins.analyzer.TypeOrigin;
 import org.gradlex.plugins.analyzer.WalaUtil;
 
 import java.util.ArrayDeque;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.stream.Stream;
 
 import static org.gradlex.plugins.analyzer.WalaUtil.instructions;
+import static org.slf4j.event.Level.DEBUG;
 import static org.slf4j.event.Level.WARN;
 
 /**
@@ -49,11 +51,11 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
             .forEach(method -> instructions(method)
                 .flatMap(instruction -> getReferencedTypeNames(context, instruction))
                 .map(WalaUtil::normalizeTypeName)
-                .map(context::lookup)
+                .map(context::findClass)
                 .filter(Objects::nonNull)
                 .filter(TypeOrigin::isInternalGradleApi)
                 .distinct()
-                .sorted()
+                .sorted(Comparator.comparing(internalType -> internalType.getName().toString()))
                 .forEach(internalType -> context.report(WARN, String.format("Method %s references internal Gradle type: %s",
                     method.getSignature(), internalType.getName()))));
     }
@@ -113,7 +115,7 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
             return Stream.of(iInst.getType());
         } else if (instruction instanceof IInvokeInstruction iInvoke) {
             String invokedTypeName = iInvoke.getClassType();
-            IClass invokedType = context.lookup(invokedTypeName);
+            IClass invokedType = context.findClass(invokedTypeName);
             if (invokedType == null) {
                 return Stream.empty();
             }
@@ -122,18 +124,18 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
 
             var method = context.getHierarchy().resolveMethod(invokedType, Selector.make(iInvoke.getMethodName() + iInvoke.getMethodSignature()));
             if (method == null) {
-                throw new IllegalStateException("Cannot find method: " + invokedTypeName + "." + iInvoke.getMethodName() + iInvoke.getMethodSignature());
-            }
+                context.report(DEBUG, "Cannot find method: %s.%s%s".formatted(invokedTypeName, iInvoke.getMethodName(), iInvoke.getMethodSignature()));
+            } else {
+                // Add the type the method is declared in
+                builder.add(method.getDeclaringClass().getName().toString());
 
-            // Add the type the method is declared in
-            builder.add(method.getDeclaringClass().getName().toString());
+                // Add return type
+                builder.add(method.getReturnType().getName().toString());
 
-            // Add return type
-            builder.add(method.getReturnType().getName().toString());
-
-            // Add parameter types
-            for (int iParam = 0; iParam < method.getNumberOfParameters(); iParam++) {
-                builder.add(method.getParameterType(iParam).getName().toString());
+                // Add parameter types
+                for (int iParam = 0; iParam < method.getNumberOfParameters(); iParam++) {
+                    builder.add(method.getParameterType(iParam).getName().toString());
+                }
             }
             return builder.build();
         } else if (instruction instanceof ILoadInstruction iLoad) {
