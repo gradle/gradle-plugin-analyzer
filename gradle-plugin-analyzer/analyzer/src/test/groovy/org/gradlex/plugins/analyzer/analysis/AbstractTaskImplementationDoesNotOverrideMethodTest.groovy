@@ -127,4 +127,42 @@ class AbstractTaskImplementationDoesNotOverrideMethodTest extends AbstractAnalys
             "WARN: The dynamic Groovy method setEnabled() in LCustomTask overrides Gradle API from Lorg/gradle/api/DefaultTask",
         ]
     }
+
+    def "can detect super-only overriding method in Kotlin code"() {
+        compileKotlin("""
+            class CustomTask : org.gradle.api.tasks.SourceTask() {
+                override fun getEnabled() = super.getEnabled()
+
+                override fun getSource() = super.getSource()
+            }
+        """)
+
+        when:
+        analyzer.analyze(analysis)
+
+        then:
+        reports == [
+            "INFO: The method getEnabled() in LCustomTask overrides Gradle API from Lorg/gradle/api/DefaultTask, but calls only super()",
+            "INFO: The method getSource() in LCustomTask overrides Gradle API from Lorg/gradle/api/tasks/SourceTask, but calls only super()",
+        ]
+    }
+
+    def "can detect overriding method with custom logic in Kotlin code"() {
+        compileKotlin("""
+            class CustomTask : org.gradle.api.DefaultTask() {
+                override fun setEnabled(value: Boolean): Unit {
+                    super.setEnabled(value)
+                    println("Additional logic")
+                }
+            }
+        """)
+
+        when:
+        analyzer.analyze(analysis)
+
+        then:
+        reports == [
+            "WARN: The method setEnabled() in LCustomTask overrides Gradle API from Lorg/gradle/api/DefaultTask with custom logic: Instruction #4 expected to be ReturnInstruction but it was Constant(Ljava/lang/String;,\"Additional logic\")"
+        ]
+    }
 }

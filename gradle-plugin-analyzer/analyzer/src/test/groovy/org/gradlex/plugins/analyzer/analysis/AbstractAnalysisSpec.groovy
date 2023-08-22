@@ -4,6 +4,12 @@ import com.google.common.collect.ImmutableList
 import org.codehaus.groovy.control.CompilerConfiguration
 import org.gradlex.plugins.analyzer.Analyzer
 import org.gradlex.plugins.analyzer.DefaultAnalyzer
+import org.jetbrains.kotlin.cli.common.ExitCode
+import org.jetbrains.kotlin.cli.common.arguments.K2JVMCompilerArguments
+import org.jetbrains.kotlin.cli.common.messages.MessageRenderer
+import org.jetbrains.kotlin.cli.common.messages.PrintingMessageCollector
+import org.jetbrains.kotlin.cli.jvm.K2JVMCompiler
+import org.jetbrains.kotlin.config.Services
 import spock.lang.Specification
 
 import javax.tools.JavaCompiler
@@ -16,16 +22,22 @@ import java.nio.file.Paths
 class AbstractAnalysisSpec extends Specification {
     String gradleApi
     String localGroovy
+    String localKotlin
     List<String> reports
     List<Path> files
     Analyzer analyzer
-    File targetDirectory = new File("build/test-classes/${getClass().simpleName}")
+    File sourceDirectory = new File("build/test-classes/${getClass().simpleName}/sources")
+    File targetDirectory = new File("build/test-classes/${getClass().simpleName}/classes")
 
     def setup() {
+        assert sourceDirectory.deleteDir()
+        assert sourceDirectory.mkdirs()
         assert targetDirectory.deleteDir()
+        assert targetDirectory.mkdirs()
 
         gradleApi = System.getProperty("gradle-api")
         localGroovy = System.getProperty("local-groovy")
+        localKotlin = System.getProperty("local-kotlin")
         files = [Paths.get(gradleApi), targetDirectory.toPath()]
         reports = []
     }
@@ -61,6 +73,27 @@ class AbstractAnalysisSpec extends Specification {
             null,
             ImmutableList.of(file))
             .call()
+    }
+
+    protected void compileKotlin(String source) {
+        def sourceFile = new File(sourceDirectory, "source.kt")
+        sourceFile.text = source
+
+        def args = new K2JVMCompilerArguments()
+        args.with {
+            freeArgs = [sourceFile.absolutePath]
+            destination = targetDirectory.absolutePath
+            classpath = [localGroovy, localKotlin, gradleApi, *files].join(File.pathSeparator)
+            // We are passing it in via the classpath
+            noStdlib = true
+        }
+
+        def messageCollector = new PrintingMessageCollector(System.err, MessageRenderer.GRADLE_STYLE, false)
+        def services = Services.EMPTY
+        def exitCode = new K2JVMCompiler().execImpl(messageCollector, services, args)
+        if (exitCode != ExitCode.OK) {
+            throw new RuntimeException("Compilation failure: $exitCode")
+        }
     }
 
     protected void compileGroovy(String source) {
