@@ -6,12 +6,10 @@ import com.ibm.wala.classLoader.IClass;
 import com.ibm.wala.classLoader.IMember;
 import com.ibm.wala.classLoader.IMethod;
 import com.ibm.wala.classLoader.ShrikeCTMethod;
-import com.ibm.wala.shrike.shrikeBT.ConstantInstruction;
 import com.ibm.wala.shrike.shrikeBT.IInstruction;
 import com.ibm.wala.shrike.shrikeBT.IInvokeInstruction;
 import com.ibm.wala.shrike.shrikeBT.IInvokeInstruction.Dispatch;
 import com.ibm.wala.shrike.shrikeBT.ILoadInstruction;
-import com.ibm.wala.shrike.shrikeBT.IStoreInstruction;
 import com.ibm.wala.shrike.shrikeBT.ReturnInstruction;
 import com.ibm.wala.shrike.shrikeCT.InvalidClassFileException;
 import com.ibm.wala.types.TypeReference;
@@ -20,11 +18,11 @@ import org.gradlex.plugins.analyzer.TypeOrigin;
 import org.slf4j.event.Level;
 
 import java.util.ArrayDeque;
-import java.util.Arrays;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 public abstract class AbstractTaskImplementationDoesNotOverrideMethod extends ExternalSubtypeAnalysis {
@@ -62,30 +60,28 @@ public abstract class AbstractTaskImplementationDoesNotOverrideMethod extends Ex
     private void reportOverriddenMethod(AnalysisContext context, IClass type, IMethod method, IMethod overriddenMethod) {
         ShrikeCTMethod methodImpl = (ShrikeCTMethod) method;
         try {
-            checkOverridingInstructions(methodImpl);
+            InstructionQueue queue = new InstructionQueue(methodImpl.getInstructions());
+
+            // Check if dynamic Groovi
+            // Invoke(STATIC,<type>;,$getCallSiteArray,()[Lorg/codehaus/groovy/runtime/callsite/CallSite;)
+            queue.takeNextIf(IInvokeInstruction.class, invokeCallSiteArray ->
+                    invokeCallSiteArray.getInvocationCode() == Dispatch.STATIC
+                    && invokeCallSiteArray.getMethodName().equals("$getCallSiteArray"))
+                .ifPresentOrElse(
+                    invokeInstruction -> context.report(Level.WARN, String.format("The dynamic Groovy %s %s() in %s overrides Gradle API from %s",
+                        methodType, method.getName(), type.getName(), overriddenMethod.getDeclaringClass().getName())),
+                    () -> {
+                        checkJavaInstructions(methodImpl, queue);
+                        context.report(Level.INFO, String.format("The %s %s() in %s overrides Gradle API from %s, but calls only super()",
+                            methodType, method.getName(), type.getName(), overriddenMethod.getDeclaringClass().getName()));
+                    }
+                );
         } catch (InvalidClassFileException e) {
             throw new RuntimeException(e);
         } catch (AnalysisException ex) {
             context.report(Level.WARN, String.format("The %s %s() in %s overrides Gradle API from %s with custom logic: %s",
                 methodType, method.getName(), type.getName(), overriddenMethod.getDeclaringClass().getName(), ex.getMessage()));
-            return;
         }
-        context.report(Level.INFO, String.format("The %s %s() in %s overrides Gradle API from %s, but calls only super()",
-            methodType, method.getName(), type.getName(), overriddenMethod.getDeclaringClass().getName()));
-    }
-
-    private static void checkOverridingInstructions(ShrikeCTMethod method) throws InvalidClassFileException, AnalysisException {
-        InstructionQueue queue = new InstructionQueue(method.getInstructions());
-
-        queue.takeNextIf(IInvokeInstruction.class, invokeCallSiteArray ->
-                invokeCallSiteArray.getInvocationCode() == Dispatch.STATIC
-                && invokeCallSiteArray.getMethodName().equals("$getCallSiteArray"))
-            .ifPresentOrElse(
-                invokeInstruction -> checkDynamicGroovyInstructions(method, queue),
-                () -> checkJavaInstructions(method, queue)
-            );
-
-        queue.expectNoMore();
     }
 
     private static void checkJavaInstructions(ShrikeCTMethod method, InstructionQueue queue) throws AnalysisException {
@@ -113,16 +109,12 @@ public abstract class AbstractTaskImplementationDoesNotOverrideMethod extends Ex
         }
 
         queue.expectNext(ReturnInstruction.class);
+
+        queue.expectNoMore();
     }
 
-    private static void checkDynamicGroovyInstructions(ShrikeCTMethod method, InstructionQueue queue) throws AnalysisException {
-        // Process remaining of Groovy method init
-        queue.expectNext(IStoreInstruction.class, iStore ->
-            iStore.getType().equals(TypeReference.JavaLangObject.getName() + ";")
-            && iStore.getVarIndex() == 1);
-        queue.expectNext(ConstantInstruction.class);
-
-
+    private static boolean matchesType(Supplier<String> typeName, TypeReference reference) {
+        return typeName.get().equals(reference.getName().toString() + ";");
     }
 
     private static class InstructionQueue {
@@ -130,8 +122,8 @@ public abstract class AbstractTaskImplementationDoesNotOverrideMethod extends Ex
         int counter = 0;
 
         public InstructionQueue(IInstruction... instructions) {
-            Arrays.stream(instructions)
-                .forEach(System.out::println);
+//            Arrays.stream(instructions)
+//                .forEach(System.out::println);
             this.instructions = new ArrayDeque<>(ImmutableList.copyOf(instructions));
         }
 

@@ -1,7 +1,6 @@
 package org.gradlex.plugins.analyzer.analysis
 
 import com.ibm.wala.classLoader.IMethod
-import spock.lang.Ignore
 
 class AbstractTaskImplementationDoesNotOverrideMethodTest extends AbstractAnalysisSpec {
     def analysis = new AbstractTaskImplementationDoesNotOverrideMethod("method", { IMethod method -> !method.static && !method.init }) {}
@@ -98,19 +97,23 @@ class AbstractTaskImplementationDoesNotOverrideMethodTest extends AbstractAnalys
         ]
     }
 
-    @Ignore
-    def "can detect super-only overriding method in dynamic Groovy code"() {
+    def "can detect overriding method in dynamic Groovy code"() {
         compileGroovy("""
             class CustomTask extends org.gradle.api.tasks.SourceTask {
                 @Override
                 boolean getEnabled() {
                     return super.getEnabled()
                 }
-//
-//                @Override
-//                org.gradle.api.file.FileTree getSource() {
-//                    return super.getSource()
-//                }
+
+                @Override
+                void setEnabled(boolean value) {
+                    super.setEnabled(value)
+                }
+
+                @Override
+                org.gradle.api.file.FileTree getSource() {
+                    return super.getSource()
+                }
             }
         """)
 
@@ -119,8 +122,9 @@ class AbstractTaskImplementationDoesNotOverrideMethodTest extends AbstractAnalys
 
         then:
         reports == [
-            "INFO: The method getEnabled() in LCustomTask overrides Gradle API from Lorg/gradle/api/DefaultTask, but calls only super()",
-            "INFO: The method getSource() in LCustomTask overrides Gradle API from Lorg/gradle/api/tasks/SourceTask, but calls only super()",
+            "WARN: The dynamic Groovy method getEnabled() in LCustomTask overrides Gradle API from Lorg/gradle/api/DefaultTask",
+            "WARN: The dynamic Groovy method getSource() in LCustomTask overrides Gradle API from Lorg/gradle/api/tasks/SourceTask",
+            "WARN: The dynamic Groovy method setEnabled() in LCustomTask overrides Gradle API from Lorg/gradle/api/DefaultTask",
         ]
     }
 }
