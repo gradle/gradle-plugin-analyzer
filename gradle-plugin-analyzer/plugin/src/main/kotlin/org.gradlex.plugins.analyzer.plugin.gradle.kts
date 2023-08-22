@@ -23,11 +23,9 @@ plugins {
     `jvm-ecosystem`
 }
 
-open class AnalyzedPlugin(val pluginId: String) : Comparable<AnalyzedPlugin>, Named {
+abstract class AnalyzedPlugin(val pluginId: String) : Comparable<AnalyzedPlugin>, Named {
 
-    var artifact: String? = null
-
-    var sourceUrl: String? = null
+    abstract val coordinates: Property<String>
 
     override fun getName() = pluginId
 
@@ -204,31 +202,32 @@ val analyzePluginsTask = tasks.register<PluginAnalysisCollectorTask>("analyzePlu
 
 val pluginAnalyzer = extensions.create<PluginAnalyzerExtension>("pluginAnalyzer")
 
-afterEvaluate {
-    pluginAnalyzer.analyzedPlugins.forEach { analyzedPlugin ->
-        val simplifiedName = analyzedPlugin.pluginId.replace(':', '_').replace('.', '_')
+pluginAnalyzer.analyzedPlugins.all {
+    val analyzedPlugin = this
+    val simplifiedName = analyzedPlugin.pluginId.replace(':', '_').replace('.', '_')
 
-        val config = configurations.create("conf_$simplifiedName")
-        configureRequestAttributes(config)
-        val artifact = analyzedPlugin.artifact
-            ?: (analyzedPlugin.pluginId + ":" + analyzedPlugin.pluginId + ".gradle.plugin:latest.release")
-        config.dependencies.add(dependencies.create(artifact))
+    val config = configurations.create("conf_$simplifiedName")
+    configureRequestAttributes(config)
 
-        val analyzeTask = tasks.register<PluginAnalyzerTask>("analyze_$simplifiedName") {
-            classpath = config
-            gradleApi = project.file("${gradle.gradleUserHomeDir}/caches/${gradle.gradleVersion}/generated-gradle-jars/gradle-api-${gradle.gradleVersion}.jar")
-            reportFile = project.layout.buildDirectory.file("plugin-analysis/plugins/report-${simplifiedName}.json")
-        }
+    val defaultCoordinates = analyzedPlugin.pluginId + ":" + analyzedPlugin.pluginId + ".gradle.plugin:latest.release"
+    config.dependencies.addLater(
+        analyzedPlugin.coordinates.orElse(defaultCoordinates).map { dependencyFactory.create(it) }
+    )
 
-        val formatterTask = tasks.register<FormatReportTask>("format_$simplifiedName") {
-            pluginId = analyzedPlugin.pluginId
-            jsonReport = analyzeTask.flatMap { it.reportFile }
-            markdownReport = project.layout.buildDirectory.file("plugin-analysis/plugins/report-${simplifiedName}.md")
-        }
+    val analyzeTask = tasks.register<PluginAnalyzerTask>("analyze_$simplifiedName") {
+        classpath = config
+        gradleApi = project.file("${gradle.gradleUserHomeDir}/caches/${gradle.gradleVersion}/generated-gradle-jars/gradle-api-${gradle.gradleVersion}.jar")
+        reportFile = project.layout.buildDirectory.file("plugin-analysis/plugins/report-${simplifiedName}.json")
+    }
 
-        analyzePluginsTask.configure {
-            inputReports.from(formatterTask.flatMap { it.markdownReport })
-        }
+    val formatterTask = tasks.register<FormatReportTask>("format_$simplifiedName") {
+        pluginId = analyzedPlugin.pluginId
+        jsonReport = analyzeTask.flatMap { it.reportFile }
+        markdownReport = project.layout.buildDirectory.file("plugin-analysis/plugins/report-${simplifiedName}.md")
+    }
+
+    analyzePluginsTask.configure {
+        inputReports.from(formatterTask.flatMap { it.markdownReport })
     }
 }
 

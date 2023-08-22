@@ -111,13 +111,9 @@ pluginAnalyzer {
     plugin("org.springframework.boot")
 
     // From popular plugins – https://docs.google.com/spreadsheets/d/1p-soKHdFdYyrrmokHXg9ug03hK4VoU8oAo7g28Knels/
-    plugin("com.google.dagger") {
-        artifact = "com.google.dagger:hilt-android-gradle-plugin:2.47"
-    }
-    plugin("com.google.services") {
-        artifact = "com.google.gms:google-services:4.3.15"
-    }
+    plugin("com.google.dagger.hilt.android")
+    plugin("com.google.gms.google-services")
     plugin("com.guardsquare.proguard") {
-        artifact = "com.guardsquare:proguard-gradle:7.3.2"
+        coordinates = "com.guardsquare:proguard-gradle:7.3.2"
     }
 }
