@@ -4,6 +4,7 @@ import com.ibm.wala.classLoader.IClass;
 import com.ibm.wala.classLoader.IMethod;
 import com.ibm.wala.shrike.shrikeBT.ArrayLengthInstruction;
 import com.ibm.wala.shrike.shrikeBT.ConstantInstruction;
+import com.ibm.wala.shrike.shrikeBT.ConstantInstruction.ClassToken;
 import com.ibm.wala.shrike.shrikeBT.DupInstruction;
 import com.ibm.wala.shrike.shrikeBT.GotoInstruction;
 import com.ibm.wala.shrike.shrikeBT.IArrayLoadInstruction;
@@ -61,14 +62,21 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
 
         ReferenceCollector referenceCollector = new ReferenceCollector(context);
 
+        if (type.getClassInitializer() != null) {
+            analyzeMethod(context, type.getClassInitializer(), referenceCollector);
+        }
         type.getDeclaredMethods()
             .forEach(method -> {
-                ReferenceCollector.Recorder bodyRecorder = referenceCollector.forMethodBody(method);
-                WalaUtil.instructions(method)
-                    .forEach(instruction -> recordReferencedTypes(context, instruction, bodyRecorder));
+                analyzeMethod(context, method, referenceCollector);
             });
 
         referenceCollector.references.forEach(reference -> context.report(WARN, reference));
+    }
+
+    private static void analyzeMethod(AnalysisContext context, IMethod method, ReferenceCollector referenceCollector) {
+        ReferenceCollector.Recorder bodyRecorder = referenceCollector.forMethodBody(method);
+        WalaUtil.instructions(method)
+            .forEach(instruction -> recordReferencedTypes(context, instruction, bodyRecorder));
     }
 
     private void checkHierarchy(IClass baseType, AnalysisContext context) {
@@ -111,6 +119,9 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
             @Override
             public void visitConstant(ConstantInstruction instruction) {
                 recorder.recordReference(instruction.getType());
+                if (instruction.getValue() instanceof ClassToken token) {
+                    recorder.recordReference(token.getTypeName());
+                }
             }
 
             @Override
