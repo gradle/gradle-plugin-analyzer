@@ -94,6 +94,8 @@ class TaskImplementationReferencesInternalApiTest extends AbstractAnalysisSpec {
         compileJava("""
             @org.gradle.internal.instrumentation.api.annotations.VisitForInstrumentation({org.gradle.api.internal.BuildType.class})
             class CustomTask extends org.gradle.api.DefaultTask {
+                @org.gradle.internal.instrumentation.api.annotations.InterceptInherited
+                void doSomething() {}
             }
         """)
 
@@ -102,6 +104,7 @@ class TaskImplementationReferencesInternalApiTest extends AbstractAnalysisSpec {
 
         then:
         reports == [
+            "WARN: Annotation on method CustomTask.doSomething()V references internal Gradle APIs: Lorg/gradle/internal/instrumentation/api/annotations/InterceptInherited",
             "WARN: Annotation on type LCustomTask references internal Gradle APIs: Lorg/gradle/api/internal/BuildType",
             "WARN: Annotation on type LCustomTask references internal Gradle APIs: Lorg/gradle/internal/instrumentation/api/annotations/VisitForInstrumentation",
         ]

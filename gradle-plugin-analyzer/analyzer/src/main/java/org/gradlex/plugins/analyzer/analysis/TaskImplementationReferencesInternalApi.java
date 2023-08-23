@@ -110,6 +110,8 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
     }
 
     private static void analyzeMethod(AnalysisContext context, IMethod method, ReferenceCollector referenceCollector) {
+        checkAnnotations(method.getAnnotations(), referenceCollector.forAnnotations("method " + method.getSignature()));
+
         ReferenceCollector.Recorder declarationRecorder = referenceCollector.forMethodDeclaration(method);
         declarationRecorder.recordReference(method.getReturnType());
         for (int iParam = 0; iParam < method.getNumberOfParameters(); iParam++) {
