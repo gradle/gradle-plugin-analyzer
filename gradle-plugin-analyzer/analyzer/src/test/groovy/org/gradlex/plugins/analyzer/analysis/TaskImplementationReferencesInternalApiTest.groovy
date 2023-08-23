@@ -88,4 +88,22 @@ class TaskImplementationReferencesInternalApiTest extends AbstractAnalysisSpec {
             "WARN: Method declaration CustomTask.internalApis(Lorg/gradle/api/internal/TaskInputsInternal;)Lorg/gradle/api/internal/TaskOutputsInternal; references internal Gradle type: Lorg/gradle/internal/exceptions/DefaultMultiCauseException",
         ]
     }
+
+    def "signals use of internal types in annotations"() {
+        // org.gradle.internal.instrumentation.api.annotations.InterceptInherited
+        compileJava("""
+            @org.gradle.internal.instrumentation.api.annotations.VisitForInstrumentation({org.gradle.api.internal.BuildType.class})
+            class CustomTask extends org.gradle.api.DefaultTask {
+            }
+        """)
+
+        when:
+        analyzer.analyze(new TaskImplementationReferencesInternalApi())
+
+        then:
+        reports == [
+            "WARN: Annotation on type LCustomTask references internal Gradle APIs: Lorg/gradle/api/internal/BuildType",
+            "WARN: Annotation on type LCustomTask references internal Gradle APIs: Lorg/gradle/internal/instrumentation/api/annotations/VisitForInstrumentation",
+        ]
+    }
 }

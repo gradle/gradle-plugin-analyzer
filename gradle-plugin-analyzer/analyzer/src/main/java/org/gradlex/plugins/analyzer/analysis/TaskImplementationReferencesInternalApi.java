@@ -33,20 +33,25 @@ import com.ibm.wala.shrike.shrikeBT.ReturnInstruction;
 import com.ibm.wala.shrike.shrikeBT.SwapInstruction;
 import com.ibm.wala.shrike.shrikeBT.SwitchInstruction;
 import com.ibm.wala.shrike.shrikeBT.ThrowInstruction;
+import com.ibm.wala.shrike.shrikeCT.AnnotationsReader.AnnotationAttribute;
+import com.ibm.wala.shrike.shrikeCT.AnnotationsReader.ArrayElementValue;
+import com.ibm.wala.shrike.shrikeCT.AnnotationsReader.ConstantElementValue;
+import com.ibm.wala.shrike.shrikeCT.AnnotationsReader.EnumElementValue;
 import com.ibm.wala.shrike.shrikeCT.InvalidClassFileException;
 import com.ibm.wala.types.Selector;
 import com.ibm.wala.types.TypeReference;
+import com.ibm.wala.types.annotations.Annotation;
 import org.gradlex.plugins.analyzer.ExternalSubtypeAnalysis;
 import org.gradlex.plugins.analyzer.TypeOrigin;
 import org.gradlex.plugins.analyzer.WalaUtil;
 
 import java.util.ArrayDeque;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.function.Function;
-import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 import static org.slf4j.event.Level.DEBUG;
@@ -65,6 +70,8 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
         ReferenceCollector referenceCollector = new ReferenceCollector(context);
         checkHierarchy(type, referenceCollector.forTypeHierarchy(type));
 
+        checkAnnotations(type.getAnnotations(), referenceCollector.forAnnotations("type " + type.getName()));
+
         if (type.getClassInitializer() != null) {
             analyzeMethod(context, type.getClassInitializer(), referenceCollector);
         }
@@ -74,6 +81,32 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
             });
 
         referenceCollector.references.forEach(reference -> context.report(WARN, reference));
+    }
+
+    private static void checkAnnotations(Collection<Annotation> annotations, ReferenceCollector.Recorder recorder) {
+        annotations.forEach(annotation -> {
+            recorder.recordReference(annotation.getType());
+            Stream.ofNullable(annotation.getUnnamedArguments())
+                .flatMap(Arrays::stream)
+                .map(arg -> arg.fst)
+                .forEach(recorder::recordReference);
+            annotation.getNamedArguments().values()
+                .forEach(rootValue -> visitHierarchy(rootValue, value -> {
+                    if (value instanceof ArrayElementValue vArray) {
+                        return Arrays.stream(vArray.vals);
+                    } else if (value instanceof AnnotationAttribute vAnnotation) {
+                        recorder.recordReference(vAnnotation.type);
+                        return vAnnotation.elementValues.values().stream();
+                    } else if (value instanceof ConstantElementValue vConst) {
+                        if (vConst.val instanceof String typeName) {
+                            recorder.recordReference(typeName);
+                        }
+                    } else if (value instanceof EnumElementValue vEnum) {
+                        recorder.recordReference(vEnum.enumType);
+                    }
+                    return Stream.empty();
+                }));
+        });
     }
 
     private static void analyzeMethod(AnalysisContext context, IMethod method, ReferenceCollector referenceCollector) {
@@ -327,6 +360,15 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
             };
         }
 
+        public Recorder forAnnotations(String subject) {
+            return new Recorder() {
+                @Override
+                protected String formatReference(TypeReference reference) {
+                    return "Annotation on %s references internal Gradle APIs: %s".formatted(subject, reference.getName());
+                }
+            };
+        }
+
         public abstract class Recorder {
             public void recordReference(String typeName) {
                 TypeReference reference = context.findReference(typeName);
@@ -359,7 +401,7 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
                 break;
             }
             visitor.apply(node)
-                .filter(Predicate.not(seen::add))
+                .filter(seen::add)
                 .forEach(queue::add);
         }
     }
