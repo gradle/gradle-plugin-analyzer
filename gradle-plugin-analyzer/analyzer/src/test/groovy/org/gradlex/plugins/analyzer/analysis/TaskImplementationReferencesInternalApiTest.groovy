@@ -89,6 +89,22 @@ class TaskImplementationReferencesInternalApiTest extends AbstractAnalysisSpec {
         ]
     }
 
+    def "signals internal types in field declarations"() {
+        compileJava("""
+            class CustomTask extends org.gradle.api.DefaultTask {
+                private org.gradle.api.internal.BuildType buildType;
+            }
+        """)
+
+        when:
+        analyzer.analyze(new TaskImplementationReferencesInternalApi())
+
+        then:
+        reports == [
+            "WARN: Field buildType references internal Gradle type: Lorg/gradle/api/internal/BuildType",
+        ]
+    }
+
     def "signals use of internal types in annotations"() {
         // org.gradle.internal.instrumentation.api.annotations.InterceptInherited
         compileJava("""

@@ -1,6 +1,7 @@
 package org.gradlex.plugins.analyzer.analysis;
 
 import com.ibm.wala.classLoader.IClass;
+import com.ibm.wala.classLoader.IField;
 import com.ibm.wala.classLoader.IMethod;
 import com.ibm.wala.shrike.shrikeBT.ArrayLengthInstruction;
 import com.ibm.wala.shrike.shrikeBT.ConstantInstruction;
@@ -45,6 +46,7 @@ import org.gradlex.plugins.analyzer.ExternalSubtypeAnalysis;
 import org.gradlex.plugins.analyzer.TypeOrigin;
 import org.gradlex.plugins.analyzer.WalaUtil;
 
+import javax.annotation.Nullable;
 import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Collection;
@@ -72,18 +74,26 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
 
         checkAnnotations(type.getAnnotations(), referenceCollector.forAnnotations("type " + type.getName()));
 
-        if (type.getClassInitializer() != null) {
-            analyzeMethod(context, type.getClassInitializer(), referenceCollector);
-        }
-        type.getDeclaredMethods()
-            .forEach(method -> {
-                analyzeMethod(context, method, referenceCollector);
+        Stream.concat(
+                type.getDeclaredStaticFields().stream(),
+                type.getDeclaredInstanceFields().stream())
+            .forEach(field -> {
+                checkAnnotations(field.getAnnotations(), referenceCollector.forAnnotations("field " + field.getName()));
+                referenceCollector.forField(field).recordReference(field.getFieldTypeReference());
             });
+
+        Stream.concat(
+                Stream.ofNullable(type.getClassInitializer()),
+                type.getDeclaredMethods().stream())
+            .forEach(method -> analyzeMethod(context, method, referenceCollector));
 
         referenceCollector.references.forEach(reference -> context.report(WARN, reference));
     }
 
-    private static void checkAnnotations(Collection<Annotation> annotations, ReferenceCollector.Recorder recorder) {
+    private static void checkAnnotations(@Nullable Collection<Annotation> annotations, ReferenceCollector.Recorder recorder) {
+        if (annotations == null) {
+            return;
+        }
         annotations.forEach(annotation -> {
             recorder.recordReference(annotation.getType());
             Stream.ofNullable(annotation.getUnnamedArguments())
@@ -367,6 +377,15 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
                 @Override
                 protected String formatReference(TypeReference reference) {
                     return "Annotation on %s references internal Gradle APIs: %s".formatted(subject, reference.getName());
+                }
+            };
+        }
+
+        public Recorder forField(IField field) {
+            return new Recorder() {
+                @Override
+                protected String formatReference(TypeReference reference) {
+                    return "Field %s references internal Gradle type: %s".formatted(field.getName(), reference.getName());
                 }
             };
         }
