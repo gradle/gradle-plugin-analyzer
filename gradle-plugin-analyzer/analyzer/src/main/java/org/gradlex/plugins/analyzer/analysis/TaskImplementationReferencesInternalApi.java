@@ -27,7 +27,7 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
     protected void analyzeType(IClass type, AnalysisContext context) {
         ReferenceCollector referenceCollector = new ReferenceCollector(context);
         
-        TypeReferenceWalker.walkReferences(type, context, referenceCollector);
+        TypeReferenceWalker.walkReferences(type, referenceCollector);
 
         referenceCollector.references.forEach(reference -> context.report(WARN, reference));
     }
@@ -44,8 +44,8 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
         public ReferenceVisitor forTypeHierarchy(IClass type) {
             return new Recorder() {
                 @Override
-                protected String formatReference(TypeReference reference) {
-                    return "Type %s extends internal Gradle type: %s".formatted(type.getName(), reference.getName());
+                protected String formatReference(String reference) {
+                    return "Type %s extends %s".formatted(type.getName(), reference);
                 }
             };
         }
@@ -59,8 +59,8 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
         public ReferenceVisitor forFieldDeclaration(IField field) {
             return new Recorder() {
                 @Override
-                protected String formatReference(TypeReference reference) {
-                    return "Field %s references internal Gradle type: %s".formatted(field.getName(), reference.getName());
+                protected String formatReference(String reference) {
+                    return "Field %s references %s".formatted(field.getName(), reference);
                 }
             };
         }
@@ -74,8 +74,8 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
         public ReferenceVisitor forMethodDeclaration(IMethod originMethod) {
             return new Recorder() {
                 @Override
-                protected String formatReference(TypeReference reference) {
-                    return "Method declaration %s references internal Gradle type: %s".formatted(originMethod.getSignature(), reference.getName());
+                protected String formatReference(String reference) {
+                    return "Method declaration %s references %s".formatted(originMethod.getSignature(), reference);
                 }
             };
         }
@@ -84,8 +84,8 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
         public ReferenceVisitor forMethodBody(IMethod originMethod) {
             return new Recorder() {
                 @Override
-                protected String formatReference(TypeReference reference) {
-                    return "Method %s references internal Gradle type: %s".formatted(originMethod.getSignature(), reference.getName());
+                protected String formatReference(String reference) {
+                    return "Method %s references %s".formatted(originMethod.getSignature(), reference);
                 }
             };
         }
@@ -98,8 +98,8 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
         private ReferenceVisitor forAnnotations(String subject) {
             return new Recorder() {
                 @Override
-                protected String formatReference(TypeReference reference) {
-                    return "Annotation on %s references internal Gradle APIs: %s".formatted(subject, reference.getName());
+                protected String formatReference(String reference) {
+                    return "Annotation on %s references %s".formatted(subject, reference);
                 }
             };
         }
@@ -114,11 +114,25 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
             @Override
             public void visitReference(TypeReference reference) {
                 if (TypeOrigin.of(reference) == TypeOrigin.INTERNAL) {
-                    references.add(formatReference(reference));
+                    references.add(formatTypeReference(reference));
                 }
             }
 
-            protected abstract String formatReference(TypeReference reference);
+            @Override
+            public void visitMethodReference(String typeName, String methodName, String methodSignature) {
+                TypeReference reference = context.findReference(typeName);
+                if (reference != null && TypeOrigin.of(reference) == TypeOrigin.INTERNAL) {
+                    references.add(formatMethodReference(reference, methodName, methodSignature));
+                }
+            }
+
+            private String formatTypeReference(TypeReference reference) {
+                return formatReference("internal Gradle type " + reference.getName());
+            }
+            private String formatMethodReference(TypeReference type, String methodName, String methodSignature) {
+                return formatReference("internal Gradle method " + type.getName() + "." + methodName + methodSignature);
+            }
+            protected abstract String formatReference(String reference);
         }
     }
 }

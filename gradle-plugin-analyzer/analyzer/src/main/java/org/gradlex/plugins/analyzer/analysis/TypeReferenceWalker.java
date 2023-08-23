@@ -39,10 +39,8 @@ import com.ibm.wala.shrike.shrikeCT.AnnotationsReader.ArrayElementValue;
 import com.ibm.wala.shrike.shrikeCT.AnnotationsReader.ConstantElementValue;
 import com.ibm.wala.shrike.shrikeCT.AnnotationsReader.EnumElementValue;
 import com.ibm.wala.shrike.shrikeCT.InvalidClassFileException;
-import com.ibm.wala.types.Selector;
 import com.ibm.wala.types.TypeReference;
 import com.ibm.wala.types.annotations.Annotation;
-import org.gradlex.plugins.analyzer.Analysis.AnalysisContext;
 import org.gradlex.plugins.analyzer.TypeOrigin;
 import org.gradlex.plugins.analyzer.WalaUtil;
 
@@ -54,11 +52,9 @@ import java.util.HashSet;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
-import static org.slf4j.event.Level.DEBUG;
-
 public class TypeReferenceWalker {
 
-    public static void walkReferences(IClass type, AnalysisContext context, ReferenceVisitorFactory visitorFactory) {
+    public static void walkReferences(IClass type, ReferenceVisitorFactory visitorFactory) {
         visitHierarchy(type, visitorFactory.forTypeHierarchy(type));
 
         visitAnnotations(type.getAnnotations(), visitorFactory.forTypeAnnotations(type));
@@ -74,7 +70,7 @@ public class TypeReferenceWalker {
         Stream.concat(
                 Stream.ofNullable(type.getClassInitializer()),
                 type.getDeclaredMethods().stream())
-            .forEach(method -> visitMethod(context, method, visitorFactory));
+            .forEach(method -> visitMethod(method, visitorFactory));
     }
 
     private static void visitAnnotations(@Nullable Collection<Annotation> annotations, ReferenceVisitor visitor) {
@@ -106,7 +102,7 @@ public class TypeReferenceWalker {
         });
     }
 
-    private static void visitMethod(AnalysisContext context, IMethod method, ReferenceVisitorFactory visitorFactory) {
+    private static void visitMethod(IMethod method, ReferenceVisitorFactory visitorFactory) {
         visitAnnotations(method.getAnnotations(), visitorFactory.forMethodAnnotations(method));
 
         ReferenceVisitor declarationVisitor = visitorFactory.forMethodDeclaration(method);
@@ -118,7 +114,7 @@ public class TypeReferenceWalker {
 
         ReferenceVisitor bodyVisitor = visitorFactory.forMethodBody(method);
         WalaUtil.instructions(method)
-            .forEach(instruction -> visitReferencedTypes(context, instruction, bodyVisitor));
+            .forEach(instruction -> visitReferencedTypes(instruction, bodyVisitor));
     }
 
     private static Stream<TypeReference> getDeclaredExceptions(IMethod method) {
@@ -153,7 +149,7 @@ public class TypeReferenceWalker {
             type.getDirectInterfaces().stream());
     }
 
-    private static void visitReferencedTypes(AnalysisContext context, IInstruction instruction, ReferenceVisitor visitor) {
+    private static void visitReferencedTypes(IInstruction instruction, ReferenceVisitor visitor) {
         instruction.visit(new Visitor() {
             @Override
             public void visitConstant(ConstantInstruction instruction) {
@@ -258,28 +254,7 @@ public class TypeReferenceWalker {
 
             @Override
             public void visitInvoke(IInvokeInstruction instruction) {
-                String invokedTypeName = instruction.getClassType();
-                IClass invokedType = context.findClass(invokedTypeName);
-                if (invokedType == null) {
-                    return;
-                }
-                visitor.visitReference(invokedTypeName);
-
-                var invokedMethod = context.getHierarchy().resolveMethod(invokedType, Selector.make(instruction.getMethodName() + instruction.getMethodSignature()));
-                if (invokedMethod == null) {
-                    context.report(DEBUG, "Cannot find method: %s.%s%s".formatted(invokedTypeName, instruction.getMethodName(), instruction.getMethodSignature()));
-                } else {
-                    // Add the type the method is declared in
-                    visitor.visitReference(invokedMethod.getDeclaringClass().getName().toString());
-
-                    // Add return type
-                    visitor.visitReference(invokedMethod.getReturnType().getName().toString());
-
-                    // Add parameter types
-                    for (int iParam = 0; iParam < invokedMethod.getNumberOfParameters(); iParam++) {
-                        visitor.visitReference(invokedMethod.getParameterType(iParam).getName().toString());
-                    }
-                }
+                visitor.visitMethodReference(instruction.getClassType(), instruction.getMethodName(), instruction.getMethodSignature());
             }
 
             @Override
@@ -338,7 +313,7 @@ public class TypeReferenceWalker {
                 .forEach(queue::add);
         }
     }
-    
+
     public interface ReferenceVisitorFactory {
         ReferenceVisitor forTypeHierarchy(IClass type);
 
@@ -365,6 +340,8 @@ public class TypeReferenceWalker {
                 visitReference(reference);
             }
         }
+
+        public abstract void visitMethodReference(String typeName, String methodName, String methodSignature);
 
         public abstract void visitReference(TypeReference reference);
 
