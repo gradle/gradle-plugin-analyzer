@@ -33,7 +33,9 @@ import com.ibm.wala.shrike.shrikeBT.ReturnInstruction;
 import com.ibm.wala.shrike.shrikeBT.SwapInstruction;
 import com.ibm.wala.shrike.shrikeBT.SwitchInstruction;
 import com.ibm.wala.shrike.shrikeBT.ThrowInstruction;
+import com.ibm.wala.shrike.shrikeCT.InvalidClassFileException;
 import com.ibm.wala.types.Selector;
+import com.ibm.wala.types.TypeReference;
 import org.gradlex.plugins.analyzer.ExternalSubtypeAnalysis;
 import org.gradlex.plugins.analyzer.TypeOrigin;
 import org.gradlex.plugins.analyzer.WalaUtil;
@@ -74,9 +76,24 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
     }
 
     private static void analyzeMethod(AnalysisContext context, IMethod method, ReferenceCollector referenceCollector) {
+        ReferenceCollector.Recorder declarationRecorder = referenceCollector.forMethodDeclaration(method);
+        declarationRecorder.recordReference(method.getReturnType());
+        for (int iParam = 0; iParam < method.getNumberOfParameters(); iParam++) {
+            declarationRecorder.recordReference(method.getParameterType(iParam));
+        }
+        getDeclaredExceptions(method).forEach(declarationRecorder::recordReference);
+
         ReferenceCollector.Recorder bodyRecorder = referenceCollector.forMethodBody(method);
         WalaUtil.instructions(method)
             .forEach(instruction -> recordReferencedTypes(context, instruction, bodyRecorder));
+    }
+
+    private static Stream<TypeReference> getDeclaredExceptions(IMethod method) {
+        try {
+            return Stream.ofNullable(method.getDeclaredExceptions()).flatMap(Arrays::stream);
+        } catch (InvalidClassFileException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private void checkHierarchy(IClass baseType, AnalysisContext context) {
@@ -293,22 +310,39 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
             this.context = context;
         }
 
-        public Recorder forMethodBody(IMethod originMethod) {
+        public Recorder forMethodDeclaration(IMethod originMethod) {
             return new Recorder() {
                 @Override
-                public void recordReference(String typeName) {
-                    var reference = context.findReference(typeName);
-                    if (reference != null) {
-                        if (TypeOrigin.of(reference) == TypeOrigin.INTERNAL) {
-                            references.add("Method %s references internal Gradle type: %s".formatted(originMethod.getSignature(), reference.getName()));
-                        }
-                    }
+                protected String formatReference(TypeReference reference) {
+                    return "Method declaration %s references internal Gradle type: %s".formatted(originMethod.getSignature(), reference.getName());
                 }
             };
         }
 
-        public interface Recorder {
-            void recordReference(String typeName);
+        public Recorder forMethodBody(IMethod originMethod) {
+            return new Recorder() {
+                @Override
+                protected String formatReference(TypeReference reference) {
+                    return "Method %s references internal Gradle type: %s".formatted(originMethod.getSignature(), reference.getName());
+                }
+            };
+        }
+
+        public abstract class Recorder {
+            public void recordReference(String typeName) {
+                TypeReference reference = context.findReference(typeName);
+                if (reference != null) {
+                    recordReference(reference);
+                }
+            }
+
+            public void recordReference(TypeReference reference) {
+                if (TypeOrigin.of(reference) == TypeOrigin.INTERNAL) {
+                    references.add(formatReference(reference));
+                }
+            }
+
+            protected abstract String formatReference(TypeReference reference);
         }
     }
 }

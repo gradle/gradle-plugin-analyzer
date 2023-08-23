@@ -29,12 +29,4 @@ public class WalaUtil {
             throw new RuntimeException(e);
         }
     }
-
-    private static TypeReference[] getDeclaredExceptions(IMethod method) {
-        try {
-            return method.getDeclaredExceptions();
-        } catch (InvalidClassFileException e) {
-            throw new RuntimeException(e);
-        }
-    }
 }

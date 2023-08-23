@@ -65,4 +65,27 @@ class TaskImplementationReferencesInternalApiTest extends AbstractAnalysisSpec {
             "WARN: Method CustomTask.execute()V references internal Gradle type: Lorg/gradle/api/internal/TaskOutputsInternal",
         ]
     }
+
+    def "signals internal API references in method declarations"() {
+        compileJava("""
+            class CustomTask extends org.gradle.api.DefaultTask {
+                CustomTask(org.gradle.api.internal.BuildType buildType) {}
+                            
+                protected org.gradle.api.internal.TaskOutputsInternal internalApis(org.gradle.api.internal.TaskInputsInternal inputs) throws org.gradle.internal.exceptions.DefaultMultiCauseException {
+                    return null;
+                } 
+            }
+        """)
+
+        when:
+        analyzer.analyze(new TaskImplementationReferencesInternalApi())
+
+        then:
+        reports == [
+            "WARN: Method declaration CustomTask.<init>(Lorg/gradle/api/internal/BuildType;)V references internal Gradle type: Lorg/gradle/api/internal/BuildType",
+            "WARN: Method declaration CustomTask.internalApis(Lorg/gradle/api/internal/TaskInputsInternal;)Lorg/gradle/api/internal/TaskOutputsInternal; references internal Gradle type: Lorg/gradle/api/internal/TaskInputsInternal",
+            "WARN: Method declaration CustomTask.internalApis(Lorg/gradle/api/internal/TaskInputsInternal;)Lorg/gradle/api/internal/TaskOutputsInternal; references internal Gradle type: Lorg/gradle/api/internal/TaskOutputsInternal",
+            "WARN: Method declaration CustomTask.internalApis(Lorg/gradle/api/internal/TaskInputsInternal;)Lorg/gradle/api/internal/TaskOutputsInternal; references internal Gradle type: Lorg/gradle/internal/exceptions/DefaultMultiCauseException",
+        ]
+    }
 }
