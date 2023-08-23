@@ -60,9 +60,8 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
 
     @Override
     protected void analyzeType(IClass type, AnalysisContext context) {
-        checkHierarchy(type, context);
-
         ReferenceCollector referenceCollector = new ReferenceCollector(context);
+        checkHierarchy(type, referenceCollector.forTypeHierarchy(type));
 
         if (type.getClassInitializer() != null) {
             analyzeMethod(context, type.getClassInitializer(), referenceCollector);
@@ -96,7 +95,7 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
         }
     }
 
-    private void checkHierarchy(IClass baseType, AnalysisContext context) {
+    private void checkHierarchy(IClass baseType, ReferenceCollector.Recorder recorder) {
         var queue = new ArrayDeque<IClass>();
         var seen = new HashSet<IClass>();
         queue.add(baseType);
@@ -109,13 +108,14 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
                 .forEach(superType -> {
                     switch (TypeOrigin.of(superType)) {
                         case PUBLIC:
-                            // Ignore referenced public types
+                            // Ignore referenced public types and their supertypes
                             break;
                         case INTERNAL:
                             // Report referenced internal type
-                            context.report(WARN, String.format("Type %s extends internal Gradle API %s", type.getName(), superType.getName()));
+                            recorder.recordReference(superType);
                             break;
                         default:
+                            // Visit external supertype
                             if (seen.add(superType)) {
                                 queue.add(superType);
                             }
@@ -328,6 +328,15 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
             };
         }
 
+        public Recorder forTypeHierarchy(IClass baseType) {
+            return new Recorder() {
+                @Override
+                protected String formatReference(TypeReference reference) {
+                    return "Type %s extends internal Gradle type: %s".formatted(baseType.getName(), reference.getName());
+                }
+            };
+        }
+
         public abstract class Recorder {
             public void recordReference(String typeName) {
                 TypeReference reference = context.findReference(typeName);
@@ -340,6 +349,10 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
                 if (TypeOrigin.of(reference) == TypeOrigin.INTERNAL) {
                     references.add(formatReference(reference));
                 }
+            }
+
+            public void recordReference(IClass type) {
+                recordReference(type.getReference());
             }
 
             protected abstract String formatReference(TypeReference reference);
