@@ -8,6 +8,7 @@ import com.ibm.wala.shrike.shrikeCT.InvalidClassFileException;
 import com.ibm.wala.types.TypeReference;
 
 import java.util.Arrays;
+import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
@@ -28,5 +29,13 @@ public class WalaUtil {
         } catch (InvalidClassFileException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public static boolean matchesType(Supplier<String> typeName, TypeReference reference) {
+        return matchesType(typeName.get(), reference);
+    }
+
+    public static boolean matchesType(String typeName, TypeReference reference) {
+        return typeName.equals(reference.getName().toString() + ";");
     }
 }
