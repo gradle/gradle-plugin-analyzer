@@ -5,8 +5,8 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.ibm.wala.classLoader.IClass;
-import com.ibm.wala.classLoader.IMethod;
 import com.ibm.wala.types.TypeName;
+import com.ibm.wala.types.TypeReference;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -103,8 +103,12 @@ public enum TypeOrigin {
         return pattern.matcher(packageName).matches();
     }
 
-    static TypeOrigin of(TypeName type) {
+    public static TypeOrigin of(TypeName type) {
         return CACHE.getUnchecked(type);
+    }
+
+    public static TypeOrigin of(TypeReference reference) {
+        return of(reference.getName());
     }
 
     public static TypeOrigin of(IClass clazz) {

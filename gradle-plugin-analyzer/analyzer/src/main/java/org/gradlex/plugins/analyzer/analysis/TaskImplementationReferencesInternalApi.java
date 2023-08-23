@@ -2,8 +2,6 @@ package org.gradlex.plugins.analyzer.analysis;
 
 import com.ibm.wala.classLoader.IClass;
 import com.ibm.wala.classLoader.IMethod;
-import com.ibm.wala.ipa.callgraph.AnalysisCache;
-import com.ibm.wala.ipa.callgraph.AnalysisCacheImpl;
 import com.ibm.wala.shrike.shrikeBT.ArrayLengthInstruction;
 import com.ibm.wala.shrike.shrikeBT.ConstantInstruction;
 import com.ibm.wala.shrike.shrikeBT.DupInstruction;
@@ -34,19 +32,18 @@ import com.ibm.wala.shrike.shrikeBT.ReturnInstruction;
 import com.ibm.wala.shrike.shrikeBT.SwapInstruction;
 import com.ibm.wala.shrike.shrikeBT.SwitchInstruction;
 import com.ibm.wala.shrike.shrikeBT.ThrowInstruction;
-import com.ibm.wala.ssa.IRFactory;
 import com.ibm.wala.types.Selector;
 import org.gradlex.plugins.analyzer.ExternalSubtypeAnalysis;
 import org.gradlex.plugins.analyzer.TypeOrigin;
+import org.gradlex.plugins.analyzer.WalaUtil;
 
 import java.util.ArrayDeque;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.HashSet;
-import java.util.Objects;
+import java.util.SortedSet;
+import java.util.TreeSet;
 import java.util.stream.Stream;
 
-import static org.gradlex.plugins.analyzer.WalaUtil.instructions;
 import static org.slf4j.event.Level.DEBUG;
 import static org.slf4j.event.Level.WARN;
 
@@ -62,19 +59,16 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
     protected void analyzeType(IClass type, AnalysisContext context) {
         checkHierarchy(type, context);
 
-        AnalysisCache cache = new AnalysisCacheImpl();
-        IRFactory<IMethod> factory = cache.getIRFactory();
+        ReferenceCollector referenceCollector = new ReferenceCollector(context);
 
         type.getDeclaredMethods()
-            .forEach(method -> instructions(method)
-                .flatMap(instruction -> getReferencedTypeNames(context, instruction))
-                .map(context::findClass)
-                .filter(Objects::nonNull)
-                .filter(TypeOrigin::isInternalGradleApi)
-                .distinct()
-                .sorted(Comparator.comparing(internalType -> internalType.getName().toString()))
-                .forEach(internalType -> context.report(WARN, String.format("Method %s references internal Gradle type: %s",
-                    method.getSignature(), internalType.getName()))));
+            .forEach(method -> {
+                ReferenceCollector.Recorder bodyRecorder = referenceCollector.forMethodBody(method);
+                WalaUtil.instructions(method)
+                    .forEach(instruction -> recordReferencedTypes(context, instruction, bodyRecorder));
+            });
+
+        referenceCollector.references.forEach(reference -> context.report(WARN, reference));
     }
 
     private void checkHierarchy(IClass baseType, AnalysisContext context) {
@@ -112,22 +106,21 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
             type.getDirectInterfaces().stream());
     }
 
-    private static Stream<String> getReferencedTypeNames(AnalysisContext context, IInstruction instruction) {
-        var types = Stream.<String>builder();
+    private static void recordReferencedTypes(AnalysisContext context, IInstruction instruction, ReferenceCollector.Recorder recorder) {
         instruction.visit(new Visitor() {
             @Override
             public void visitConstant(ConstantInstruction instruction) {
-                types.add(instruction.getType());
+                recorder.recordReference(instruction.getType());
             }
 
             @Override
             public void visitLocalLoad(ILoadInstruction instruction) {
-                types.add(instruction.getType());
+                recorder.recordReference(instruction.getType());
             }
 
             @Override
             public void visitLocalStore(IStoreInstruction instruction) {
-                types.add(instruction.getType());
+                recorder.recordReference(instruction.getType());
             }
 
             @Override
@@ -137,12 +130,12 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
 
             @Override
             public void visitArrayLoad(IArrayLoadInstruction instruction) {
-                types.add(instruction.getType());
+                recorder.recordReference(instruction.getType());
             }
 
             @Override
             public void visitArrayStore(IArrayStoreInstruction instruction) {
-                types.add(instruction.getType());
+                recorder.recordReference(instruction.getType());
             }
 
             @Override
@@ -162,33 +155,33 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
 
             @Override
             public void visitBinaryOp(IBinaryOpInstruction instruction) {
-                types.add(instruction.getType());
+                recorder.recordReference(instruction.getType());
             }
 
             @Override
             public void visitUnaryOp(IUnaryOpInstruction instruction) {
-                types.add(instruction.getType());
+                recorder.recordReference(instruction.getType());
             }
 
             @Override
             public void visitShift(IShiftInstruction instruction) {
-                types.add(instruction.getType());
+                recorder.recordReference(instruction.getType());
             }
 
             @Override
             public void visitConversion(IConversionInstruction instruction) {
-                types.add(instruction.getFromType());
-                types.add(instruction.getToType());
+                recorder.recordReference(instruction.getFromType());
+                recorder.recordReference(instruction.getToType());
             }
 
             @Override
             public void visitComparison(IComparisonInstruction instruction) {
-                types.add(instruction.getType());
+                recorder.recordReference(instruction.getType());
             }
 
             @Override
             public void visitConditionalBranch(IConditionalBranchInstruction instruction) {
-                types.add(instruction.getType());
+                recorder.recordReference(instruction.getType());
             }
 
             @Override
@@ -198,19 +191,19 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
 
             @Override
             public void visitReturn(ReturnInstruction instruction) {
-                types.add(instruction.getType());
+                recorder.recordReference(instruction.getType());
             }
 
             @Override
             public void visitGet(IGetInstruction instruction) {
-                types.add(instruction.getClassType());
-                types.add(instruction.getFieldType());
+                recorder.recordReference(instruction.getClassType());
+                recorder.recordReference(instruction.getFieldType());
             }
 
             @Override
             public void visitPut(IPutInstruction instruction) {
-                types.add(instruction.getClassType());
-                types.add(instruction.getFieldType());
+                recorder.recordReference(instruction.getClassType());
+                recorder.recordReference(instruction.getFieldType());
             }
 
             @Override
@@ -220,28 +213,28 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
                 if (invokedType == null) {
                     return;
                 }
-                types.add(invokedTypeName);
+                recorder.recordReference(invokedTypeName);
 
                 var invokedMethod = context.getHierarchy().resolveMethod(invokedType, Selector.make(instruction.getMethodName() + instruction.getMethodSignature()));
                 if (invokedMethod == null) {
                     context.report(DEBUG, "Cannot find method: %s.%s%s".formatted(invokedTypeName, instruction.getMethodName(), instruction.getMethodSignature()));
                 } else {
                     // Add the type the method is declared in
-                    types.add(invokedMethod.getDeclaringClass().getName().toString());
+                    recorder.recordReference(invokedMethod.getDeclaringClass().getName().toString());
 
                     // Add return type
-                    types.add(invokedMethod.getReturnType().getName().toString());
+                    recorder.recordReference(invokedMethod.getReturnType().getName().toString());
 
                     // Add parameter types
                     for (int iParam = 0; iParam < invokedMethod.getNumberOfParameters(); iParam++) {
-                        types.add(invokedMethod.getParameterType(iParam).getName().toString());
+                        recorder.recordReference(invokedMethod.getParameterType(iParam).getName().toString());
                     }
                 }
             }
 
             @Override
             public void visitNew(NewInstruction instruction) {
-                types.add(instruction.getType());
+                recorder.recordReference(instruction.getType());
             }
 
             @Override
@@ -261,12 +254,12 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
 
             @Override
             public void visitCheckCast(ITypeTestInstruction instruction) {
-                Arrays.stream(instruction.getTypes()).forEach(types::add);
+                Arrays.stream(instruction.getTypes()).forEach(recorder::recordReference);
             }
 
             @Override
             public void visitInstanceof(IInstanceofInstruction instruction) {
-                types.add(instruction.getType());
+                recorder.recordReference(instruction.getType());
             }
 
             @Override
@@ -276,9 +269,35 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
 
             @Override
             public void visitStoreIndirect(IStoreIndirectInstruction instruction) {
-                types.add(instruction.getType());
+                recorder.recordReference(instruction.getType());
             }
         });
-        return types.build();
+    }
+
+    private static class ReferenceCollector {
+        private final AnalysisContext context;
+        private final SortedSet<String> references = new TreeSet<>();
+
+        public ReferenceCollector(AnalysisContext context) {
+            this.context = context;
+        }
+
+        public Recorder forMethodBody(IMethod originMethod) {
+            return new Recorder() {
+                @Override
+                public void recordReference(String typeName) {
+                    var reference = context.findReference(typeName);
+                    if (reference != null) {
+                        if (TypeOrigin.of(reference) == TypeOrigin.INTERNAL) {
+                            references.add("Method %s references internal Gradle type: %s".formatted(originMethod.getSignature(), reference.getName()));
+                        }
+                    }
+                }
+            };
+        }
+
+        public interface Recorder {
+            void recordReference(String typeName);
+        }
     }
 }
