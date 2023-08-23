@@ -45,11 +45,8 @@ import org.gradlex.plugins.analyzer.TypeOrigin;
 import org.gradlex.plugins.analyzer.WalaUtil;
 
 import javax.annotation.Nullable;
-import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashSet;
-import java.util.function.Function;
 import java.util.stream.Stream;
 
 public class TypeReferenceWalker {
@@ -84,7 +81,7 @@ public class TypeReferenceWalker {
                 .map(arg -> arg.fst)
                 .forEach(visitor::visitReference);
             annotation.getNamedArguments().values()
-                .forEach(rootValue -> visitHierarchy(rootValue, value -> {
+                .forEach(rootValue -> WalaUtil.visitHierarchy(rootValue, value -> {
                     if (value instanceof ArrayElementValue vArray) {
                         return Arrays.stream(vArray.vals);
                     } else if (value instanceof AnnotationAttribute vAnnotation) {
@@ -126,7 +123,7 @@ public class TypeReferenceWalker {
     }
 
     private static void visitHierarchy(IClass baseType, ReferenceVisitor visitor) {
-        visitHierarchy(baseType, type -> directSuperTypes(type)
+        WalaUtil.visitHierarchy(baseType, type -> directSuperTypes(type)
             .flatMap(superType -> switch (TypeOrigin.of(superType)) {
                 case PUBLIC ->
                     // Ignore referenced public types and their supertypes
@@ -297,21 +294,6 @@ public class TypeReferenceWalker {
                 visitor.visitReference(instruction.getType());
             }
         });
-    }
-
-    private static <T> void visitHierarchy(T seed, Function<? super T, Stream<? extends T>> visitor) {
-        var queue = new ArrayDeque<T>();
-        var seen = new HashSet<T>();
-        queue.add(seed);
-        while (true) {
-            T node = queue.poll();
-            if (node == null) {
-                break;
-            }
-            visitor.apply(node)
-                .filter(seen::add)
-                .forEach(queue::add);
-        }
     }
 
     public interface ReferenceVisitorFactory {

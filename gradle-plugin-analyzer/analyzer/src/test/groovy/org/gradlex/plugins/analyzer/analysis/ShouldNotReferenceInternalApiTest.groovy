@@ -1,6 +1,8 @@
 package org.gradlex.plugins.analyzer.analysis
 
-class TaskImplementationReferencesInternalApiTest extends AbstractAnalysisSpec {
+import static org.gradlex.plugins.analyzer.TypeRepository.TypeSet.EXTERNAL_TASK_TYPES
+
+class ShouldNotReferenceInternalApiTest extends AbstractAnalysisSpec {
     def "does not signal public API references"() {
         compileJava("""
             class CustomTask extends org.gradle.api.DefaultTask {
@@ -11,7 +13,7 @@ class TaskImplementationReferencesInternalApiTest extends AbstractAnalysisSpec {
         """)
 
         when:
-        analyzer.analyze(new TaskImplementationReferencesInternalApi())
+        analyzer.analyze(EXTERNAL_TASK_TYPES, new ShouldNotReferenceInternalApi())
 
         then:
         reports == []
@@ -24,7 +26,7 @@ class TaskImplementationReferencesInternalApiTest extends AbstractAnalysisSpec {
         """)
 
         when:
-        analyzer.analyze(new TaskImplementationReferencesInternalApi())
+        analyzer.analyze(EXTERNAL_TASK_TYPES, new ShouldNotReferenceInternalApi())
 
         then:
         reports == [
@@ -53,7 +55,7 @@ class TaskImplementationReferencesInternalApiTest extends AbstractAnalysisSpec {
         """)
 
         when:
-        analyzer.analyze(new TaskImplementationReferencesInternalApi())
+        analyzer.analyze(EXTERNAL_TASK_TYPES, new ShouldNotReferenceInternalApi())
 
         then:
         reports == [
@@ -76,7 +78,7 @@ class TaskImplementationReferencesInternalApiTest extends AbstractAnalysisSpec {
         """)
 
         when:
-        analyzer.analyze(new TaskImplementationReferencesInternalApi())
+        analyzer.analyze(EXTERNAL_TASK_TYPES, new ShouldNotReferenceInternalApi())
 
         then:
         reports == [
@@ -95,11 +97,11 @@ class TaskImplementationReferencesInternalApiTest extends AbstractAnalysisSpec {
         """)
 
         when:
-        analyzer.analyze(new TaskImplementationReferencesInternalApi())
+        analyzer.analyze(EXTERNAL_TASK_TYPES, new ShouldNotReferenceInternalApi())
 
         then:
         reports == [
-            "WARN: Field buildType references internal Gradle type Lorg/gradle/api/internal/BuildType",
+            "WARN: Field LCustomTask.buildType references internal Gradle type Lorg/gradle/api/internal/BuildType",
         ]
     }
 
@@ -114,7 +116,7 @@ class TaskImplementationReferencesInternalApiTest extends AbstractAnalysisSpec {
         """)
 
         when:
-        analyzer.analyze(new TaskImplementationReferencesInternalApi())
+        analyzer.analyze(EXTERNAL_TASK_TYPES, new ShouldNotReferenceInternalApi())
 
         then:
         reports == [

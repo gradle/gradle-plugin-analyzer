@@ -7,10 +7,10 @@ import static org.gradlex.plugins.analyzer.WalaUtil.matches;
 /**
  * Task implementations should not override setters from the Gradle API.
  */
-public class TaskImplementationDoesNotOverrideSetter extends AbstractTaskImplementationDoesNotOverrideMethod {
+public class TypeShouldNotOverrideSetter extends AbstractMethodOverrideAnalysis {
     private static final Pattern SETTER = Pattern.compile("set[A-Z].*");
 
-    public TaskImplementationDoesNotOverrideSetter() {
+    public TypeShouldNotOverrideSetter() {
         super("setter", method ->
             // Setters take two arguments: `this` and the value
             (method.getNumberOfParameters() == 2)

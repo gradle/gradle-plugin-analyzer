@@ -7,7 +7,11 @@ import com.ibm.wala.shrike.shrikeBT.IInstruction;
 import com.ibm.wala.shrike.shrikeCT.InvalidClassFileException;
 import com.ibm.wala.types.TypeReference;
 
+import java.util.ArrayDeque;
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -37,5 +41,28 @@ public class WalaUtil {
 
     public static boolean matchesType(String typeName, TypeReference reference) {
         return typeName.equals(reference.getName().toString() + ";");
+    }
+
+    public static <T> void visitHierarchy(T seed, Function<? super T, Stream<? extends T>> visitor) {
+        var seen = new HashSet<>();
+        visitHierarchy(seed, seen::add, visitor);
+    }
+
+    public static <T> void visitHierarchy(T seed, Predicate<? super T> seen, Function<? super T, Stream<? extends T>> visitor) {
+        if (!seen.test(seed)) {
+            return;
+        }
+
+        var queue = new ArrayDeque<T>();
+        queue.add(seed);
+        while (true) {
+            T node = queue.poll();
+            if (node == null) {
+                break;
+            }
+            visitor.apply(node)
+                .filter(seen)
+                .forEach(queue::add);
+        }
     }
 }

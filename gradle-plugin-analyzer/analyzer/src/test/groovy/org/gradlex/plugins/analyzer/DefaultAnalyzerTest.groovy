@@ -1,8 +1,8 @@
 package org.gradlex.plugins.analyzer
 
 import com.ibm.wala.classLoader.IClass
-import org.gradlex.plugins.analyzer.analysis.TaskImplementationDoesNotExtendDefaultTask
-import org.gradlex.plugins.analyzer.analysis.TaskImplementationDoesNotOverrideSetter
+import org.gradlex.plugins.analyzer.analysis.TypeShouldExtendType
+import org.gradlex.plugins.analyzer.analysis.TypeShouldNotOverrideSetter
 import spock.lang.Specification
 
 import java.nio.file.FileSystem
@@ -12,6 +12,7 @@ import java.nio.file.Paths
 import java.util.regex.Pattern
 import java.util.stream.Stream
 
+import static org.gradlex.plugins.analyzer.TypeRepository.TypeSet.EXTERNAL_TASK_TYPES
 import static org.slf4j.event.Level.INFO
 
 class DefaultAnalyzerTest extends Specification {
@@ -28,9 +29,9 @@ class DefaultAnalyzerTest extends Specification {
         def pluginTypes = []
 
         when:
-        analyzer.analyze(new ExternalSubtypeAnalysis("Lorg/gradle/api/Plugin") {
+        analyzer.analyze(TypeRepository.TypeSet.PLUGIN_TYPES, new Analysis() {
             @Override
-            protected void analyzeType(IClass type, Analysis.AnalysisContext context) {
+            void analyzeType(IClass type, Analysis.AnalysisContext context) {
                 context.report(INFO, "Found plugin: " + type.name)
                 pluginTypes += type.name.toString()
             }
@@ -52,7 +53,7 @@ class DefaultAnalyzerTest extends Specification {
         def analyzer = new DefaultAnalyzer(files)
 
         expect:
-        analyzer.analyze(new TaskImplementationDoesNotExtendDefaultTask())
+        analyzer.analyze(EXTERNAL_TASK_TYPES, new TypeShouldExtendType("Lorg/gradle/api/DefaultTask"))
     }
 
     def "can show tasks that override setters"() {
@@ -67,7 +68,7 @@ class DefaultAnalyzerTest extends Specification {
         def analyzer = new DefaultAnalyzer(files)
 
         expect:
-        analyzer.analyze(new TaskImplementationDoesNotOverrideSetter())
+        analyzer.analyze(EXTERNAL_TASK_TYPES, new TypeShouldNotOverrideSetter())
     }
 
     private static Stream<Path> explode(String paths, FileSystem fileSystem) {

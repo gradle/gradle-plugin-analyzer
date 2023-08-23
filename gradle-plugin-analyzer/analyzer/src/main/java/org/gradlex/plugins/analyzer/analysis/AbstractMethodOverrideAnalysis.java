@@ -13,7 +13,7 @@ import com.ibm.wala.shrike.shrikeBT.ILoadInstruction;
 import com.ibm.wala.shrike.shrikeBT.ReturnInstruction;
 import com.ibm.wala.shrike.shrikeCT.InvalidClassFileException;
 import com.ibm.wala.types.TypeReference;
-import org.gradlex.plugins.analyzer.ExternalSubtypeAnalysis;
+import org.gradlex.plugins.analyzer.Analysis;
 import org.gradlex.plugins.analyzer.TypeOrigin;
 import org.gradlex.plugins.analyzer.WalaUtil;
 import org.slf4j.event.Level;
@@ -25,18 +25,17 @@ import java.util.Queue;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
-public abstract class AbstractTaskImplementationDoesNotOverrideMethod extends ExternalSubtypeAnalysis {
+public abstract class AbstractMethodOverrideAnalysis implements Analysis {
     private final String methodType;
     private final Predicate<? super IMethod> filter;
 
-    public AbstractTaskImplementationDoesNotOverrideMethod(String methodType, Predicate<? super IMethod> filter) {
-        super("Lorg/gradle/api/Task");
+    public AbstractMethodOverrideAnalysis(String methodType, Predicate<? super IMethod> filter) {
         this.methodType = methodType;
         this.filter = filter;
     }
 
     @Override
-    protected void analyzeType(IClass type, AnalysisContext context) {
+    public void analyzeType(IClass type, AnalysisContext context) {
         type.getDeclaredMethods().stream()
             // Ignore bridge methods
             .filter(Predicate.not(IMethod::isBridge))

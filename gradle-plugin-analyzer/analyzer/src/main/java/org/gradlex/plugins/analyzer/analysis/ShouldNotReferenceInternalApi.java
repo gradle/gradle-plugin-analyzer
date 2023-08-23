@@ -4,7 +4,7 @@ import com.ibm.wala.classLoader.IClass;
 import com.ibm.wala.classLoader.IField;
 import com.ibm.wala.classLoader.IMethod;
 import com.ibm.wala.types.TypeReference;
-import org.gradlex.plugins.analyzer.ExternalSubtypeAnalysis;
+import org.gradlex.plugins.analyzer.Analysis;
 import org.gradlex.plugins.analyzer.TypeOrigin;
 import org.gradlex.plugins.analyzer.analysis.TypeReferenceWalker.ReferenceVisitor;
 import org.gradlex.plugins.analyzer.analysis.TypeReferenceWalker.ReferenceVisitorFactory;
@@ -18,13 +18,9 @@ import static org.slf4j.event.Level.WARN;
 /**
  * Task implementations should not reference internal Gradle APIs.
  */
-public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnalysis {
-    public TaskImplementationReferencesInternalApi() {
-        super("Lorg/gradle/api/Task");
-    }
-
+public class ShouldNotReferenceInternalApi implements Analysis {
     @Override
-    protected void analyzeType(IClass type, AnalysisContext context) {
+    public void analyzeType(IClass type, AnalysisContext context) {
         ReferenceCollector referenceCollector = new ReferenceCollector(context);
         
         TypeReferenceWalker.walkReferences(type, referenceCollector);

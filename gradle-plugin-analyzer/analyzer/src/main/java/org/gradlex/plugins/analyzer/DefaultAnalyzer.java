@@ -8,15 +8,16 @@ import com.ibm.wala.ipa.cha.ClassHierarchy;
 import com.ibm.wala.ipa.cha.ClassHierarchyException;
 import com.ibm.wala.ipa.cha.ClassHierarchyFactory;
 import com.ibm.wala.types.ClassLoaderReference;
-import com.ibm.wala.types.TypeName;
 import com.ibm.wala.types.TypeReference;
 import com.ibm.wala.util.config.FileOfClasses;
 import org.gradlex.plugins.analyzer.Analysis.AnalysisContext;
+import org.gradlex.plugins.analyzer.TypeRepository.TypeSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.event.Level;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -29,9 +30,9 @@ import java.util.jar.JarFile;
 public class DefaultAnalyzer implements Analyzer {
     private static final Logger LOGGER = LoggerFactory.getLogger(DefaultAnalyzer.class);
 
-    private final AnalysisScope scope;
     private final Reporter reporter;
     private final ClassHierarchy hierarchy;
+    private final TypeRepository typeCache;
 
     public DefaultAnalyzer(Collection<Path> classpath) throws ClassHierarchyException, IOException {
         this(classpath, (level, message) -> LOGGER.atLevel(level).log(message));
@@ -39,8 +40,8 @@ public class DefaultAnalyzer implements Analyzer {
 
     public DefaultAnalyzer(Collection<Path> classpath, Reporter reporter) throws ClassHierarchyException, IOException {
         this.reporter = reporter;
-        this.scope = createScope(classpath);
         this.hierarchy = ClassHierarchyFactory.make(createScope(classpath));
+        this.typeCache = new TypeRepository(hierarchy);
     }
 
     @Nonnull
@@ -66,51 +67,38 @@ public class DefaultAnalyzer implements Analyzer {
     }
 
     @Override
-    public void analyze(Analysis analysis) {
-        analysis.execute(new AnalysisContext() {
-            @Override
-            public ClassHierarchy getHierarchy() {
-                return hierarchy;
-            }
-
-            @Override
-            public TypeReference findReference(String name) {
-                var normalizedTypeName = normalizeTypeName(name);
-                var reference = TypeReference.find(scope.getApplicationLoader(), normalizedTypeName);
-                if (reference == null) {
-                    return null;
-                }
-                // Unpack array types
-                while (reference.isArrayType()) {
-                    reference = reference.getArrayElementType();
-                }
-                return reference;
-            }
-
-            private static TypeName normalizeTypeName(String typeName) {
-                var normalizedName = typeName.endsWith(";")
-                    ? typeName.substring(0, typeName.length() - 1)
-                    : typeName;
-                return TypeName.findOrCreate(normalizedName);
-            }
-
-            @Override
-            public IClass findClass(String name) {
-                TypeReference reference = findReference(name);
-                if (reference == null) {
-                    return null;
-                }
-                if (reference.isPrimitiveType()) {
-                    return null;
+    public void analyze(TypeSet typeSet, Analysis analysis) {
+        TypeResolverImpl typeResolver = new TypeResolverImpl(hierarchy);
+        typeCache.getTypeSet(typeSet).forEach(type -> {
+            analysis.analyzeType(type, new AnalysisContext() {
+                @Override
+                public ClassHierarchy hierarchy() {
+                    return hierarchy;
                 }
 
-                return hierarchy.lookupClass(reference);
-            }
+                @Nullable
+                @Override
+                public TypeReference findReference(String name) {
+                    return typeResolver.findReference(name);
+                }
 
-            @Override
-            public void report(Level level, String message) {
-                reporter.report(level, message);
-            }
+                @Nullable
+                @Override
+                public IClass findClass(TypeReference reference) {
+                    return typeResolver.findClass(reference);
+                }
+
+                @Nullable
+                @Override
+                public IClass findClass(String name) {
+                    return typeResolver.findClass(name);
+                }
+
+                @Override
+                public void report(Level level, String message) {
+                    reporter.report(level, message);
+                }
+            });
         });
     }
 
