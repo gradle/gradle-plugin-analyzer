@@ -61,14 +61,14 @@ public class TypeReferenceWalker {
     public static void walkReferences(IClass type, AnalysisContext context, ReferenceVisitorFactory visitorFactory) {
         visitHierarchy(type, visitorFactory.forTypeHierarchy(type));
 
-        visitAnnotations(type.getAnnotations(), visitorFactory.forAnnotations("type " + type.getName()));
+        visitAnnotations(type.getAnnotations(), visitorFactory.forTypeAnnotations(type));
 
         Stream.concat(
                 type.getDeclaredStaticFields().stream(),
                 type.getDeclaredInstanceFields().stream())
             .forEach(field -> {
-                visitAnnotations(field.getAnnotations(), visitorFactory.forAnnotations("field " + field.getName()));
-                visitorFactory.forField(field).visitReference(field.getFieldTypeReference());
+                visitAnnotations(field.getAnnotations(), visitorFactory.forFieldAnnotations(field));
+                visitorFactory.forFieldDeclaration(field).visitReference(field.getFieldTypeReference());
             });
 
         Stream.concat(
@@ -107,7 +107,7 @@ public class TypeReferenceWalker {
     }
 
     private static void visitMethod(AnalysisContext context, IMethod method, ReferenceVisitorFactory visitorFactory) {
-        visitAnnotations(method.getAnnotations(), visitorFactory.forAnnotations("method " + method.getSignature()));
+        visitAnnotations(method.getAnnotations(), visitorFactory.forMethodAnnotations(method));
 
         ReferenceVisitor declarationVisitor = visitorFactory.forMethodDeclaration(method);
         declarationVisitor.visitReference(method.getReturnType());
@@ -340,15 +340,19 @@ public class TypeReferenceWalker {
     }
     
     public interface ReferenceVisitorFactory {
+        ReferenceVisitor forTypeHierarchy(IClass type);
+
+        ReferenceVisitor forTypeAnnotations(IClass type);
+
+        ReferenceVisitor forFieldDeclaration(IField field);
+
+        ReferenceVisitor forFieldAnnotations(IField field);
+
         ReferenceVisitor forMethodDeclaration(IMethod originMethod);
 
         ReferenceVisitor forMethodBody(IMethod originMethod);
 
-        ReferenceVisitor forTypeHierarchy(IClass baseType);
-
-        ReferenceVisitor forAnnotations(String subject);
-
-        ReferenceVisitor forField(IField field);
+        ReferenceVisitor forMethodAnnotations(IMethod method);
     }
 
     public abstract static class ReferenceVisitor {

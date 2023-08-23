@@ -41,6 +41,36 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
         }
 
         @Override
+        public ReferenceVisitor forTypeHierarchy(IClass type) {
+            return new Recorder() {
+                @Override
+                protected String formatReference(TypeReference reference) {
+                    return "Type %s extends internal Gradle type: %s".formatted(type.getName(), reference.getName());
+                }
+            };
+        }
+
+        @Override
+        public ReferenceVisitor forTypeAnnotations(IClass type) {
+            return forAnnotations("type " + type.getName());
+        }
+
+        @Override
+        public ReferenceVisitor forFieldDeclaration(IField field) {
+            return new Recorder() {
+                @Override
+                protected String formatReference(TypeReference reference) {
+                    return "Field %s references internal Gradle type: %s".formatted(field.getName(), reference.getName());
+                }
+            };
+        }
+
+        @Override
+        public ReferenceVisitor forFieldAnnotations(IField field) {
+            return forAnnotations("field " + field.getName());
+        }
+
+        @Override
         public ReferenceVisitor forMethodDeclaration(IMethod originMethod) {
             return new Recorder() {
                 @Override
@@ -61,31 +91,15 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
         }
 
         @Override
-        public ReferenceVisitor forTypeHierarchy(IClass baseType) {
-            return new Recorder() {
-                @Override
-                protected String formatReference(TypeReference reference) {
-                    return "Type %s extends internal Gradle type: %s".formatted(baseType.getName(), reference.getName());
-                }
-            };
+        public ReferenceVisitor forMethodAnnotations(IMethod method) {
+            return forAnnotations("method " + method.getSignature());
         }
 
-        @Override
-        public ReferenceVisitor forAnnotations(String subject) {
+        private ReferenceVisitor forAnnotations(String subject) {
             return new Recorder() {
                 @Override
                 protected String formatReference(TypeReference reference) {
                     return "Annotation on %s references internal Gradle APIs: %s".formatted(subject, reference.getName());
-                }
-            };
-        }
-
-        @Override
-        public ReferenceVisitor forField(IField field) {
-            return new Recorder() {
-                @Override
-                protected String formatReference(TypeReference reference) {
-                    return "Field %s references internal Gradle type: %s".formatted(field.getName(), reference.getName());
                 }
             };
         }
