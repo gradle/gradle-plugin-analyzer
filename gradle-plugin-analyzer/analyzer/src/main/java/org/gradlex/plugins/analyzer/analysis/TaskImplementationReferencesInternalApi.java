@@ -1,8 +1,13 @@
 package org.gradlex.plugins.analyzer.analysis;
 
 import com.ibm.wala.classLoader.IClass;
+import com.ibm.wala.classLoader.IMethod;
+import com.ibm.wala.ipa.callgraph.AnalysisCache;
+import com.ibm.wala.ipa.callgraph.AnalysisCacheImpl;
+import com.ibm.wala.shrike.shrikeBT.ArrayLengthInstruction;
 import com.ibm.wala.shrike.shrikeBT.ConstantInstruction;
-import com.ibm.wala.shrike.shrikeBT.ConstantInstruction.ClassToken;
+import com.ibm.wala.shrike.shrikeBT.DupInstruction;
+import com.ibm.wala.shrike.shrikeBT.GotoInstruction;
 import com.ibm.wala.shrike.shrikeBT.IArrayLoadInstruction;
 import com.ibm.wala.shrike.shrikeBT.IArrayStoreInstruction;
 import com.ibm.wala.shrike.shrikeBT.IBinaryOpInstruction;
@@ -12,21 +17,31 @@ import com.ibm.wala.shrike.shrikeBT.IConversionInstruction;
 import com.ibm.wala.shrike.shrikeBT.IGetInstruction;
 import com.ibm.wala.shrike.shrikeBT.IInstanceofInstruction;
 import com.ibm.wala.shrike.shrikeBT.IInstruction;
+import com.ibm.wala.shrike.shrikeBT.IInstruction.Visitor;
 import com.ibm.wala.shrike.shrikeBT.IInvokeInstruction;
+import com.ibm.wala.shrike.shrikeBT.ILoadIndirectInstruction;
 import com.ibm.wala.shrike.shrikeBT.ILoadInstruction;
 import com.ibm.wala.shrike.shrikeBT.IPutInstruction;
 import com.ibm.wala.shrike.shrikeBT.IShiftInstruction;
+import com.ibm.wala.shrike.shrikeBT.IStoreIndirectInstruction;
 import com.ibm.wala.shrike.shrikeBT.IStoreInstruction;
 import com.ibm.wala.shrike.shrikeBT.ITypeTestInstruction;
 import com.ibm.wala.shrike.shrikeBT.IUnaryOpInstruction;
+import com.ibm.wala.shrike.shrikeBT.MonitorInstruction;
 import com.ibm.wala.shrike.shrikeBT.NewInstruction;
+import com.ibm.wala.shrike.shrikeBT.PopInstruction;
 import com.ibm.wala.shrike.shrikeBT.ReturnInstruction;
+import com.ibm.wala.shrike.shrikeBT.SwapInstruction;
+import com.ibm.wala.shrike.shrikeBT.SwitchInstruction;
+import com.ibm.wala.shrike.shrikeBT.ThrowInstruction;
+import com.ibm.wala.ssa.IRFactory;
 import com.ibm.wala.types.Selector;
 import org.gradlex.plugins.analyzer.ExternalSubtypeAnalysis;
 import org.gradlex.plugins.analyzer.TypeOrigin;
 import org.gradlex.plugins.analyzer.WalaUtil;
 
 import java.util.ArrayDeque;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Objects;
@@ -47,6 +62,10 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
     @Override
     protected void analyzeType(IClass type, AnalysisContext context) {
         checkHierarchy(type, context);
+
+        AnalysisCache cache = new AnalysisCacheImpl();
+        IRFactory<IMethod> factory = cache.getIRFactory();
+
         type.getDeclaredMethods()
             .forEach(method -> instructions(method)
                 .flatMap(instruction -> getReferencedTypeNames(context, instruction))
@@ -96,72 +115,174 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
     }
 
     private static Stream<String> getReferencedTypeNames(AnalysisContext context, IInstruction instruction) {
-        if (instruction instanceof IArrayLoadInstruction iArrayLoad) {
-            return Stream.of(iArrayLoad.getType());
-        } else if (instruction instanceof IArrayStoreInstruction iArrayStore) {
-            return Stream.of(iArrayStore.getType());
-        } else if (instruction instanceof IBinaryOpInstruction iOp) {
-            return Stream.of(iOp.getType());
-        } else if (instruction instanceof IComparisonInstruction iCmp) {
-            return Stream.of(iCmp.getType());
-        } else if (instruction instanceof IConditionalBranchInstruction iCond) {
-            return Stream.of(iCond.getType());
-        } else if (instruction instanceof IConversionInstruction iConv) {
-            return Stream.of(iConv.getFromType(), iConv.getToType());
-        } else if (instruction instanceof IGetInstruction iGet) {
-            return Stream.of(iGet.getClassType(), iGet.getFieldType());
-        } else if (instruction instanceof IInstanceofInstruction iInst) {
-            return Stream.of(iInst.getType());
-        } else if (instruction instanceof IInvokeInstruction iInvoke) {
-            String invokedTypeName = iInvoke.getClassType();
-            IClass invokedType = context.findClass(invokedTypeName);
-            if (invokedType == null) {
-                return Stream.empty();
+        var types = Stream.<String>builder();
+        instruction.visit(new Visitor() {
+            @Override
+            public void visitConstant(ConstantInstruction instruction) {
+                types.add(instruction.getType());
             }
-            var builder = Stream.<String>builder()
-                .add(invokedTypeName);
 
-            var method = context.getHierarchy().resolveMethod(invokedType, Selector.make(iInvoke.getMethodName() + iInvoke.getMethodSignature()));
-            if (method == null) {
-                context.report(DEBUG, "Cannot find method: %s.%s%s".formatted(invokedTypeName, iInvoke.getMethodName(), iInvoke.getMethodSignature()));
-            } else {
-                // Add the type the method is declared in
-                builder.add(method.getDeclaringClass().getName().toString());
+            @Override
+            public void visitLocalLoad(ILoadInstruction instruction) {
+                types.add(instruction.getType());
+            }
 
-                // Add return type
-                builder.add(method.getReturnType().getName().toString());
+            @Override
+            public void visitLocalStore(IStoreInstruction instruction) {
+                types.add(instruction.getType());
+            }
 
-                // Add parameter types
-                for (int iParam = 0; iParam < method.getNumberOfParameters(); iParam++) {
-                    builder.add(method.getParameterType(iParam).getName().toString());
+            @Override
+            public void visitGoto(GotoInstruction instruction) {
+                // Doesn't track type
+            }
+
+            @Override
+            public void visitArrayLoad(IArrayLoadInstruction instruction) {
+                System.out.println("Array type encountered: " + instruction);
+                types.add(instruction.getType());
+            }
+
+            @Override
+            public void visitArrayStore(IArrayStoreInstruction instruction) {
+                System.out.println("Array type encountered: " + instruction);
+                types.add(instruction.getType());
+            }
+
+            @Override
+            public void visitPop(PopInstruction instruction) {
+                // Doesn't track type
+            }
+
+            @Override
+            public void visitDup(DupInstruction instruction) {
+                // Doesn't track type
+            }
+
+            @Override
+            public void visitSwap(SwapInstruction instruction) {
+                // Doesn't track type
+            }
+
+            @Override
+            public void visitBinaryOp(IBinaryOpInstruction instruction) {
+                types.add(instruction.getType());
+            }
+
+            @Override
+            public void visitUnaryOp(IUnaryOpInstruction instruction) {
+                types.add(instruction.getType());
+            }
+
+            @Override
+            public void visitShift(IShiftInstruction instruction) {
+                types.add(instruction.getType());
+            }
+
+            @Override
+            public void visitConversion(IConversionInstruction instruction) {
+                types.add(instruction.getFromType());
+                types.add(instruction.getToType());
+            }
+
+            @Override
+            public void visitComparison(IComparisonInstruction instruction) {
+                types.add(instruction.getType());
+            }
+
+            @Override
+            public void visitConditionalBranch(IConditionalBranchInstruction instruction) {
+                types.add(instruction.getType());
+            }
+
+            @Override
+            public void visitSwitch(SwitchInstruction instruction) {
+                // Doesn't track type
+            }
+
+            @Override
+            public void visitReturn(ReturnInstruction instruction) {
+                types.add(instruction.getType());
+            }
+
+            @Override
+            public void visitGet(IGetInstruction instruction) {
+                types.add(instruction.getClassType());
+                types.add(instruction.getFieldType());
+            }
+
+            @Override
+            public void visitPut(IPutInstruction instruction) {
+                types.add(instruction.getClassType());
+                types.add(instruction.getFieldType());
+            }
+
+            @Override
+            public void visitInvoke(IInvokeInstruction instruction) {
+                String invokedTypeName = instruction.getClassType();
+                IClass invokedType = context.findClass(invokedTypeName);
+                if (invokedType == null) {
+                    return;
+                }
+                types.add(invokedTypeName);
+
+                var invokedMethod = context.getHierarchy().resolveMethod(invokedType, Selector.make(instruction.getMethodName() + instruction.getMethodSignature()));
+                if (invokedMethod == null) {
+                    context.report(DEBUG, "Cannot find method: %s.%s%s".formatted(invokedTypeName, instruction.getMethodName(), instruction.getMethodSignature()));
+                } else {
+                    // Add the type the method is declared in
+                    types.add(invokedMethod.getDeclaringClass().getName().toString());
+
+                    // Add return type
+                    types.add(invokedMethod.getReturnType().getName().toString());
+
+                    // Add parameter types
+                    for (int iParam = 0; iParam < invokedMethod.getNumberOfParameters(); iParam++) {
+                        types.add(invokedMethod.getParameterType(iParam).getName().toString());
+                    }
                 }
             }
-            return builder.build();
-        } else if (instruction instanceof ILoadInstruction iLoad) {
-            return Stream.of(iLoad.getType());
-        } else if (instruction instanceof IPutInstruction iPut) {
-            return Stream.of(iPut.getClassType(), iPut.getFieldType());
-        } else if (instruction instanceof IShiftInstruction iShift) {
-            return Stream.of(iShift.getType());
-        } else if (instruction instanceof IStoreInstruction iStore) {
-            return Stream.of(iStore.getType());
-        } else if (instruction instanceof ITypeTestInstruction iTest) {
-            return Stream.of(iTest.getTypes());
-        } else if (instruction instanceof IUnaryOpInstruction iOp) {
-            return Stream.of(iOp.getType());
-        } else if (instruction instanceof ConstantInstruction iConst) {
-            Object value = iConst.getValue();
-            if (value instanceof ClassToken iToken) {
-                return Stream.of(iToken.getTypeName());
-            } else {
-                return Stream.empty();
+
+            @Override
+            public void visitNew(NewInstruction instruction) {
+                types.add(instruction.getType());
             }
-        } else if (instruction instanceof NewInstruction iNew) {
-            return Stream.of(iNew.getType());
-        } else if (instruction instanceof ReturnInstruction iRet) {
-            return Stream.of(iRet.getType());
-        } else {
-            return Stream.empty();
-        }
+
+            @Override
+            public void visitArrayLength(ArrayLengthInstruction instruction) {
+                // Doesn't track type
+            }
+
+            @Override
+            public void visitThrow(ThrowInstruction instruction) {
+                // Doesn't track type
+            }
+
+            @Override
+            public void visitMonitor(MonitorInstruction instruction) {
+                // Doesn't track type
+            }
+
+            @Override
+            public void visitCheckCast(ITypeTestInstruction instruction) {
+                Arrays.stream(instruction.getTypes()).forEach(types::add);
+            }
+
+            @Override
+            public void visitInstanceof(IInstanceofInstruction instruction) {
+                types.add(instruction.getType());
+            }
+
+            @Override
+            public void visitLoadIndirect(ILoadIndirectInstruction instruction) {
+                // Doesn't track type
+            }
+
+            @Override
+            public void visitStoreIndirect(IStoreIndirectInstruction instruction) {
+                types.add(instruction.getType());
+            }
+        });
+        return types.build();
     }
 }
