@@ -3,60 +3,16 @@ package org.gradlex.plugins.analyzer.analysis;
 import com.ibm.wala.classLoader.IClass;
 import com.ibm.wala.classLoader.IField;
 import com.ibm.wala.classLoader.IMethod;
-import com.ibm.wala.shrike.shrikeBT.ArrayLengthInstruction;
-import com.ibm.wala.shrike.shrikeBT.ConstantInstruction;
-import com.ibm.wala.shrike.shrikeBT.ConstantInstruction.ClassToken;
-import com.ibm.wala.shrike.shrikeBT.DupInstruction;
-import com.ibm.wala.shrike.shrikeBT.GotoInstruction;
-import com.ibm.wala.shrike.shrikeBT.IArrayLoadInstruction;
-import com.ibm.wala.shrike.shrikeBT.IArrayStoreInstruction;
-import com.ibm.wala.shrike.shrikeBT.IBinaryOpInstruction;
-import com.ibm.wala.shrike.shrikeBT.IComparisonInstruction;
-import com.ibm.wala.shrike.shrikeBT.IConditionalBranchInstruction;
-import com.ibm.wala.shrike.shrikeBT.IConversionInstruction;
-import com.ibm.wala.shrike.shrikeBT.IGetInstruction;
-import com.ibm.wala.shrike.shrikeBT.IInstanceofInstruction;
-import com.ibm.wala.shrike.shrikeBT.IInstruction;
-import com.ibm.wala.shrike.shrikeBT.IInstruction.Visitor;
-import com.ibm.wala.shrike.shrikeBT.IInvokeInstruction;
-import com.ibm.wala.shrike.shrikeBT.ILoadIndirectInstruction;
-import com.ibm.wala.shrike.shrikeBT.ILoadInstruction;
-import com.ibm.wala.shrike.shrikeBT.IPutInstruction;
-import com.ibm.wala.shrike.shrikeBT.IShiftInstruction;
-import com.ibm.wala.shrike.shrikeBT.IStoreIndirectInstruction;
-import com.ibm.wala.shrike.shrikeBT.IStoreInstruction;
-import com.ibm.wala.shrike.shrikeBT.ITypeTestInstruction;
-import com.ibm.wala.shrike.shrikeBT.IUnaryOpInstruction;
-import com.ibm.wala.shrike.shrikeBT.MonitorInstruction;
-import com.ibm.wala.shrike.shrikeBT.NewInstruction;
-import com.ibm.wala.shrike.shrikeBT.PopInstruction;
-import com.ibm.wala.shrike.shrikeBT.ReturnInstruction;
-import com.ibm.wala.shrike.shrikeBT.SwapInstruction;
-import com.ibm.wala.shrike.shrikeBT.SwitchInstruction;
-import com.ibm.wala.shrike.shrikeBT.ThrowInstruction;
-import com.ibm.wala.shrike.shrikeCT.AnnotationsReader.AnnotationAttribute;
-import com.ibm.wala.shrike.shrikeCT.AnnotationsReader.ArrayElementValue;
-import com.ibm.wala.shrike.shrikeCT.AnnotationsReader.ConstantElementValue;
-import com.ibm.wala.shrike.shrikeCT.AnnotationsReader.EnumElementValue;
-import com.ibm.wala.shrike.shrikeCT.InvalidClassFileException;
-import com.ibm.wala.types.Selector;
 import com.ibm.wala.types.TypeReference;
-import com.ibm.wala.types.annotations.Annotation;
 import org.gradlex.plugins.analyzer.ExternalSubtypeAnalysis;
 import org.gradlex.plugins.analyzer.TypeOrigin;
-import org.gradlex.plugins.analyzer.WalaUtil;
+import org.gradlex.plugins.analyzer.analysis.TypeReferenceWalker.ReferenceVisitor;
+import org.gradlex.plugins.analyzer.analysis.TypeReferenceWalker.ReferenceVisitorFactory;
 
 import javax.annotation.Nullable;
-import java.util.ArrayDeque;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashSet;
 import java.util.SortedSet;
 import java.util.TreeSet;
-import java.util.function.Function;
-import java.util.stream.Stream;
 
-import static org.slf4j.event.Level.DEBUG;
 import static org.slf4j.event.Level.WARN;
 
 /**
@@ -70,274 +26,13 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
     @Override
     protected void analyzeType(IClass type, AnalysisContext context) {
         ReferenceCollector referenceCollector = new ReferenceCollector(context);
-        checkHierarchy(type, referenceCollector.forTypeHierarchy(type));
-
-        checkAnnotations(type.getAnnotations(), referenceCollector.forAnnotations("type " + type.getName()));
-
-        Stream.concat(
-                type.getDeclaredStaticFields().stream(),
-                type.getDeclaredInstanceFields().stream())
-            .forEach(field -> {
-                checkAnnotations(field.getAnnotations(), referenceCollector.forAnnotations("field " + field.getName()));
-                referenceCollector.forField(field).recordReference(field.getFieldTypeReference());
-            });
-
-        Stream.concat(
-                Stream.ofNullable(type.getClassInitializer()),
-                type.getDeclaredMethods().stream())
-            .forEach(method -> analyzeMethod(context, method, referenceCollector));
+        
+        TypeReferenceWalker.walkReferences(type, context, referenceCollector);
 
         referenceCollector.references.forEach(reference -> context.report(WARN, reference));
     }
 
-    private static void checkAnnotations(@Nullable Collection<Annotation> annotations, ReferenceCollector.Recorder recorder) {
-        if (annotations == null) {
-            return;
-        }
-        annotations.forEach(annotation -> {
-            recorder.recordReference(annotation.getType());
-            Stream.ofNullable(annotation.getUnnamedArguments())
-                .flatMap(Arrays::stream)
-                .map(arg -> arg.fst)
-                .forEach(recorder::recordReference);
-            annotation.getNamedArguments().values()
-                .forEach(rootValue -> visitHierarchy(rootValue, value -> {
-                    if (value instanceof ArrayElementValue vArray) {
-                        return Arrays.stream(vArray.vals);
-                    } else if (value instanceof AnnotationAttribute vAnnotation) {
-                        recorder.recordReference(vAnnotation.type);
-                        return vAnnotation.elementValues.values().stream();
-                    } else if (value instanceof ConstantElementValue vConst) {
-                        if (vConst.val instanceof String typeName) {
-                            recorder.recordReference(typeName);
-                        }
-                    } else if (value instanceof EnumElementValue vEnum) {
-                        recorder.recordReference(vEnum.enumType);
-                    }
-                    return Stream.empty();
-                }));
-        });
-    }
-
-    private static void analyzeMethod(AnalysisContext context, IMethod method, ReferenceCollector referenceCollector) {
-        checkAnnotations(method.getAnnotations(), referenceCollector.forAnnotations("method " + method.getSignature()));
-
-        ReferenceCollector.Recorder declarationRecorder = referenceCollector.forMethodDeclaration(method);
-        declarationRecorder.recordReference(method.getReturnType());
-        for (int iParam = 0; iParam < method.getNumberOfParameters(); iParam++) {
-            declarationRecorder.recordReference(method.getParameterType(iParam));
-        }
-        getDeclaredExceptions(method).forEach(declarationRecorder::recordReference);
-
-        ReferenceCollector.Recorder bodyRecorder = referenceCollector.forMethodBody(method);
-        WalaUtil.instructions(method)
-            .forEach(instruction -> recordReferencedTypes(context, instruction, bodyRecorder));
-    }
-
-    private static Stream<TypeReference> getDeclaredExceptions(IMethod method) {
-        try {
-            return Stream.ofNullable(method.getDeclaredExceptions()).flatMap(Arrays::stream);
-        } catch (InvalidClassFileException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void checkHierarchy(IClass baseType, ReferenceCollector.Recorder recorder) {
-        visitHierarchy(baseType, type -> directSuperTypes(type)
-            .flatMap(superType -> switch (TypeOrigin.of(superType)) {
-                case PUBLIC ->
-                    // Ignore referenced public types and their supertypes
-                    Stream.<IClass>empty();
-                case INTERNAL -> {
-                    // Report referenced internal type
-                    recorder.recordReference(superType);
-                    yield Stream.<IClass>empty();
-                }
-                default ->
-                    // Visit external supertype
-                    Stream.of(superType);
-            })
-        );
-    }
-
-    private static Stream<IClass> directSuperTypes(IClass type) {
-        return Stream.concat(
-            Stream.ofNullable(type.getSuperclass()),
-            type.getDirectInterfaces().stream());
-    }
-
-    private static void recordReferencedTypes(AnalysisContext context, IInstruction instruction, ReferenceCollector.Recorder recorder) {
-        instruction.visit(new Visitor() {
-            @Override
-            public void visitConstant(ConstantInstruction instruction) {
-                recorder.recordReference(instruction.getType());
-                if (instruction.getValue() instanceof ClassToken token) {
-                    recorder.recordReference(token.getTypeName());
-                }
-            }
-
-            @Override
-            public void visitLocalLoad(ILoadInstruction instruction) {
-                recorder.recordReference(instruction.getType());
-            }
-
-            @Override
-            public void visitLocalStore(IStoreInstruction instruction) {
-                recorder.recordReference(instruction.getType());
-            }
-
-            @Override
-            public void visitGoto(GotoInstruction instruction) {
-                // Doesn't track type
-            }
-
-            @Override
-            public void visitArrayLoad(IArrayLoadInstruction instruction) {
-                recorder.recordReference(instruction.getType());
-            }
-
-            @Override
-            public void visitArrayStore(IArrayStoreInstruction instruction) {
-                recorder.recordReference(instruction.getType());
-            }
-
-            @Override
-            public void visitPop(PopInstruction instruction) {
-                // Doesn't track type
-            }
-
-            @Override
-            public void visitDup(DupInstruction instruction) {
-                // Doesn't track type
-            }
-
-            @Override
-            public void visitSwap(SwapInstruction instruction) {
-                // Doesn't track type
-            }
-
-            @Override
-            public void visitBinaryOp(IBinaryOpInstruction instruction) {
-                recorder.recordReference(instruction.getType());
-            }
-
-            @Override
-            public void visitUnaryOp(IUnaryOpInstruction instruction) {
-                recorder.recordReference(instruction.getType());
-            }
-
-            @Override
-            public void visitShift(IShiftInstruction instruction) {
-                recorder.recordReference(instruction.getType());
-            }
-
-            @Override
-            public void visitConversion(IConversionInstruction instruction) {
-                recorder.recordReference(instruction.getFromType());
-                recorder.recordReference(instruction.getToType());
-            }
-
-            @Override
-            public void visitComparison(IComparisonInstruction instruction) {
-                recorder.recordReference(instruction.getType());
-            }
-
-            @Override
-            public void visitConditionalBranch(IConditionalBranchInstruction instruction) {
-                recorder.recordReference(instruction.getType());
-            }
-
-            @Override
-            public void visitSwitch(SwitchInstruction instruction) {
-                // Doesn't track type
-            }
-
-            @Override
-            public void visitReturn(ReturnInstruction instruction) {
-                recorder.recordReference(instruction.getType());
-            }
-
-            @Override
-            public void visitGet(IGetInstruction instruction) {
-                recorder.recordReference(instruction.getClassType());
-                recorder.recordReference(instruction.getFieldType());
-            }
-
-            @Override
-            public void visitPut(IPutInstruction instruction) {
-                recorder.recordReference(instruction.getClassType());
-                recorder.recordReference(instruction.getFieldType());
-            }
-
-            @Override
-            public void visitInvoke(IInvokeInstruction instruction) {
-                String invokedTypeName = instruction.getClassType();
-                IClass invokedType = context.findClass(invokedTypeName);
-                if (invokedType == null) {
-                    return;
-                }
-                recorder.recordReference(invokedTypeName);
-
-                var invokedMethod = context.getHierarchy().resolveMethod(invokedType, Selector.make(instruction.getMethodName() + instruction.getMethodSignature()));
-                if (invokedMethod == null) {
-                    context.report(DEBUG, "Cannot find method: %s.%s%s".formatted(invokedTypeName, instruction.getMethodName(), instruction.getMethodSignature()));
-                } else {
-                    // Add the type the method is declared in
-                    recorder.recordReference(invokedMethod.getDeclaringClass().getName().toString());
-
-                    // Add return type
-                    recorder.recordReference(invokedMethod.getReturnType().getName().toString());
-
-                    // Add parameter types
-                    for (int iParam = 0; iParam < invokedMethod.getNumberOfParameters(); iParam++) {
-                        recorder.recordReference(invokedMethod.getParameterType(iParam).getName().toString());
-                    }
-                }
-            }
-
-            @Override
-            public void visitNew(NewInstruction instruction) {
-                recorder.recordReference(instruction.getType());
-            }
-
-            @Override
-            public void visitArrayLength(ArrayLengthInstruction instruction) {
-                // Doesn't track type
-            }
-
-            @Override
-            public void visitThrow(ThrowInstruction instruction) {
-                // Doesn't track type
-            }
-
-            @Override
-            public void visitMonitor(MonitorInstruction instruction) {
-                // Doesn't track type
-            }
-
-            @Override
-            public void visitCheckCast(ITypeTestInstruction instruction) {
-                Arrays.stream(instruction.getTypes()).forEach(recorder::recordReference);
-            }
-
-            @Override
-            public void visitInstanceof(IInstanceofInstruction instruction) {
-                recorder.recordReference(instruction.getType());
-            }
-
-            @Override
-            public void visitLoadIndirect(ILoadIndirectInstruction instruction) {
-                // Doesn't track type
-            }
-
-            @Override
-            public void visitStoreIndirect(IStoreIndirectInstruction instruction) {
-                recorder.recordReference(instruction.getType());
-            }
-        });
-    }
-
-    private static class ReferenceCollector {
+    private static class ReferenceCollector implements ReferenceVisitorFactory {
         private final AnalysisContext context;
         private final SortedSet<String> references = new TreeSet<>();
 
@@ -345,7 +40,8 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
             this.context = context;
         }
 
-        public Recorder forMethodDeclaration(IMethod originMethod) {
+        @Override
+        public ReferenceVisitor forMethodDeclaration(IMethod originMethod) {
             return new Recorder() {
                 @Override
                 protected String formatReference(TypeReference reference) {
@@ -354,7 +50,8 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
             };
         }
 
-        public Recorder forMethodBody(IMethod originMethod) {
+        @Override
+        public ReferenceVisitor forMethodBody(IMethod originMethod) {
             return new Recorder() {
                 @Override
                 protected String formatReference(TypeReference reference) {
@@ -363,7 +60,8 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
             };
         }
 
-        public Recorder forTypeHierarchy(IClass baseType) {
+        @Override
+        public ReferenceVisitor forTypeHierarchy(IClass baseType) {
             return new Recorder() {
                 @Override
                 protected String formatReference(TypeReference reference) {
@@ -372,7 +70,8 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
             };
         }
 
-        public Recorder forAnnotations(String subject) {
+        @Override
+        public ReferenceVisitor forAnnotations(String subject) {
             return new Recorder() {
                 @Override
                 protected String formatReference(TypeReference reference) {
@@ -381,7 +80,8 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
             };
         }
 
-        public Recorder forField(IField field) {
+        @Override
+        public ReferenceVisitor forField(IField field) {
             return new Recorder() {
                 @Override
                 protected String formatReference(TypeReference reference) {
@@ -390,40 +90,21 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
             };
         }
 
-        public abstract class Recorder {
-            public void recordReference(String typeName) {
-                TypeReference reference = context.findReference(typeName);
-                if (reference != null) {
-                    recordReference(reference);
-                }
+        public abstract class Recorder extends ReferenceVisitor {
+            @Nullable
+            @Override
+            protected TypeReference findReference(String typeName) {
+                return context.findReference(typeName);
             }
 
-            public void recordReference(TypeReference reference) {
+            @Override
+            public void visitReference(TypeReference reference) {
                 if (TypeOrigin.of(reference) == TypeOrigin.INTERNAL) {
                     references.add(formatReference(reference));
                 }
             }
 
-            public void recordReference(IClass type) {
-                recordReference(type.getReference());
-            }
-
             protected abstract String formatReference(TypeReference reference);
-        }
-    }
-
-    private static <T> void visitHierarchy(T seed, Function<? super T, Stream<? extends T>> visitor) {
-        var queue = new ArrayDeque<T>();
-        var seen = new HashSet<T>();
-        queue.add(seed);
-        while (true) {
-            T node = queue.poll();
-            if (node == null) {
-                break;
-            }
-            visitor.apply(node)
-                .filter(seen::add)
-                .forEach(queue::add);
         }
     }
 }
