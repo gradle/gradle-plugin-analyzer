@@ -38,7 +38,6 @@ import com.ibm.wala.ssa.IRFactory;
 import com.ibm.wala.types.Selector;
 import org.gradlex.plugins.analyzer.ExternalSubtypeAnalysis;
 import org.gradlex.plugins.analyzer.TypeOrigin;
-import org.gradlex.plugins.analyzer.WalaUtil;
 
 import java.util.ArrayDeque;
 import java.util.Arrays;
@@ -69,7 +68,6 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
         type.getDeclaredMethods()
             .forEach(method -> instructions(method)
                 .flatMap(instruction -> getReferencedTypeNames(context, instruction))
-                .map(WalaUtil::normalizeTypeName)
                 .map(context::findClass)
                 .filter(Objects::nonNull)
                 .filter(TypeOrigin::isInternalGradleApi)
@@ -139,13 +137,11 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
 
             @Override
             public void visitArrayLoad(IArrayLoadInstruction instruction) {
-                System.out.println("Array type encountered: " + instruction);
                 types.add(instruction.getType());
             }
 
             @Override
             public void visitArrayStore(IArrayStoreInstruction instruction) {
-                System.out.println("Array type encountered: " + instruction);
                 types.add(instruction.getType());
             }
 

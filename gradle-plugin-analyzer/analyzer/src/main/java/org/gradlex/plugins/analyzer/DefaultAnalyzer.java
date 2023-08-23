@@ -8,6 +8,7 @@ import com.ibm.wala.ipa.cha.ClassHierarchy;
 import com.ibm.wala.ipa.cha.ClassHierarchyException;
 import com.ibm.wala.ipa.cha.ClassHierarchyFactory;
 import com.ibm.wala.types.ClassLoaderReference;
+import com.ibm.wala.types.TypeName;
 import com.ibm.wala.types.TypeReference;
 import com.ibm.wala.util.config.FileOfClasses;
 import org.gradlex.plugins.analyzer.Analysis.AnalysisContext;
@@ -74,22 +75,36 @@ public class DefaultAnalyzer implements Analyzer {
 
             @Override
             public TypeReference findReference(String name) {
-                String normalizedTypeName = WalaUtil.normalizeTypeName(name);
-                return TypeReference.find(scope.getApplicationLoader(), normalizedTypeName);
+                var normalizedTypeName = normalizeTypeName(name);
+                var reference = TypeReference.find(scope.getApplicationLoader(), normalizedTypeName);
+                if (reference == null) {
+                    return null;
+                }
+                // Unpack array types
+                while (reference.isArrayType()) {
+                    reference = reference.getArrayElementType();
+                }
+                return reference;
+            }
+
+            private static TypeName normalizeTypeName(String typeName) {
+                var normalizedName = typeName.endsWith(";")
+                    ? typeName.substring(0, typeName.length() - 1)
+                    : typeName;
+                return TypeName.findOrCreate(normalizedName);
             }
 
             @Override
             public IClass findClass(String name) {
-                switch (name) {
-                    case "B", "C", "D", "F", "I", "J", "S", "Z", "V" -> {
-                        return null;
-                    }
+                TypeReference reference = findReference(name);
+                if (reference == null) {
+                    return null;
+                }
+                if (reference.isPrimitiveType()) {
+                    return null;
                 }
 
-                TypeReference reference = findReference(name);
-                return reference != null
-                    ? hierarchy.lookupClass(reference)
-                    : null;
+                return hierarchy.lookupClass(reference);
             }
 
             @Override

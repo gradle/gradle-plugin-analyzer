@@ -41,6 +41,7 @@ class TaskImplementationReferencesInternalApiTest extends AbstractAnalysisSpec {
                     if (hasTaskActions()) {
                         System.out.println("We have actions, obviously!");
                     }
+                    org.gradle.api.internal.TaskOutputsInternal[] lajos = new org.gradle.api.internal.TaskOutputsInternal[10];
                 }
             }
         """)
@@ -50,7 +51,8 @@ class TaskImplementationReferencesInternalApiTest extends AbstractAnalysisSpec {
 
         then:
         reports == [
-            "WARN: Method CustomTask.execute()V references internal Gradle type: Lorg/gradle/api/internal/AbstractTask"
+            "WARN: Method CustomTask.execute()V references internal Gradle type: Lorg/gradle/api/internal/AbstractTask",
+            "WARN: Method CustomTask.execute()V references internal Gradle type: Lorg/gradle/api/internal/TaskOutputsInternal",
         ]
     }
 }

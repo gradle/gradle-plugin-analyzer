@@ -16,12 +16,6 @@ public class WalaUtil {
         return pattern.matcher(name.toString()).matches();
     }
 
-    public static String normalizeTypeName(String typeName) {
-        return typeName.endsWith(";")
-            ? typeName.substring(0, typeName.length() - 1)
-            : typeName;
-    }
-
     public static Stream<IInstruction> instructions(IMethod method) {
         try {
             IInstruction[] instructions = ((ShrikeCTMethod) method).getInstructions();
