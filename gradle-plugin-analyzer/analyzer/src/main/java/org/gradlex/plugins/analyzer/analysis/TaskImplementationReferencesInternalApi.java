@@ -45,6 +45,8 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.SortedSet;
 import java.util.TreeSet;
+import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 import static org.slf4j.event.Level.DEBUG;
@@ -96,33 +98,21 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
     }
 
     private void checkHierarchy(IClass baseType, ReferenceCollector.Recorder recorder) {
-        var queue = new ArrayDeque<IClass>();
-        var seen = new HashSet<IClass>();
-        queue.add(baseType);
-        while (true) {
-            IClass type = queue.poll();
-            if (type == null) {
-                break;
-            }
-            directSuperTypes(type)
-                .forEach(superType -> {
-                    switch (TypeOrigin.of(superType)) {
-                        case PUBLIC:
-                            // Ignore referenced public types and their supertypes
-                            break;
-                        case INTERNAL:
-                            // Report referenced internal type
-                            recorder.recordReference(superType);
-                            break;
-                        default:
-                            // Visit external supertype
-                            if (seen.add(superType)) {
-                                queue.add(superType);
-                            }
-                            break;
-                    }
-                });
-        }
+        visitHierarchy(baseType, type -> directSuperTypes(type)
+            .flatMap(superType -> switch (TypeOrigin.of(superType)) {
+                case PUBLIC ->
+                    // Ignore referenced public types and their supertypes
+                    Stream.<IClass>empty();
+                case INTERNAL -> {
+                    // Report referenced internal type
+                    recorder.recordReference(superType);
+                    yield Stream.<IClass>empty();
+                }
+                default ->
+                    // Visit external supertype
+                    Stream.of(superType);
+            })
+        );
     }
 
     private static Stream<IClass> directSuperTypes(IClass type) {
@@ -356,6 +346,21 @@ public class TaskImplementationReferencesInternalApi extends ExternalSubtypeAnal
             }
 
             protected abstract String formatReference(TypeReference reference);
+        }
+    }
+
+    private static <T> void visitHierarchy(T seed, Function<? super T, Stream<? extends T>> visitor) {
+        var queue = new ArrayDeque<T>();
+        var seen = new HashSet<T>();
+        queue.add(seed);
+        while (true) {
+            T node = queue.poll();
+            if (node == null) {
+                break;
+            }
+            visitor.apply(node)
+                .filter(Predicate.not(seen::add))
+                .forEach(queue::add);
         }
     }
 }
