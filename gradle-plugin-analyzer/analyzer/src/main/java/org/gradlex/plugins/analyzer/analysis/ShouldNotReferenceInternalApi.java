@@ -57,7 +57,7 @@ public class ShouldNotReferenceInternalApi implements Analysis {
             return new Recorder(context.getResolver()) {
                 @Override
                 protected String formatReference(String reference) {
-                    return "Field %s references %s".formatted(field.getName(), reference);
+                    return "Field %s.%s references %s".formatted(field.getDeclaringClass().getName(), field.getName(), reference);
                 }
             };
         }
