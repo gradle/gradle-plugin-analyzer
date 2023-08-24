@@ -13,7 +13,7 @@ class ShouldNotReferenceInternalApiTest extends AbstractAnalysisSpec {
         """)
 
         when:
-        analyzer.analyze(EXTERNAL_TASK_TYPES, new ShouldNotReferenceInternalApi())
+        analyze(EXTERNAL_TASK_TYPES, new ShouldNotReferenceInternalApi())
 
         then:
         reports == []
@@ -26,7 +26,7 @@ class ShouldNotReferenceInternalApiTest extends AbstractAnalysisSpec {
         """)
 
         when:
-        analyzer.analyze(EXTERNAL_TASK_TYPES, new ShouldNotReferenceInternalApi())
+        analyze(EXTERNAL_TASK_TYPES, new ShouldNotReferenceInternalApi())
 
         then:
         reports == [
@@ -55,7 +55,7 @@ class ShouldNotReferenceInternalApiTest extends AbstractAnalysisSpec {
         """)
 
         when:
-        analyzer.analyze(EXTERNAL_TASK_TYPES, new ShouldNotReferenceInternalApi())
+        analyze(EXTERNAL_TASK_TYPES, new ShouldNotReferenceInternalApi())
 
         then:
         reports == [
@@ -78,7 +78,7 @@ class ShouldNotReferenceInternalApiTest extends AbstractAnalysisSpec {
         """)
 
         when:
-        analyzer.analyze(EXTERNAL_TASK_TYPES, new ShouldNotReferenceInternalApi())
+        analyze(EXTERNAL_TASK_TYPES, new ShouldNotReferenceInternalApi())
 
         then:
         reports == [
@@ -97,7 +97,7 @@ class ShouldNotReferenceInternalApiTest extends AbstractAnalysisSpec {
         """)
 
         when:
-        analyzer.analyze(EXTERNAL_TASK_TYPES, new ShouldNotReferenceInternalApi())
+        analyze(EXTERNAL_TASK_TYPES, new ShouldNotReferenceInternalApi())
 
         then:
         reports == [
@@ -116,7 +116,7 @@ class ShouldNotReferenceInternalApiTest extends AbstractAnalysisSpec {
         """)
 
         when:
-        analyzer.analyze(EXTERNAL_TASK_TYPES, new ShouldNotReferenceInternalApi())
+        analyze(EXTERNAL_TASK_TYPES, new ShouldNotReferenceInternalApi())
 
         then:
         reports == [

@@ -20,7 +20,7 @@ class DefaultAnalyzerTest extends AbstractAnalysisSpec {
         def pluginTypes = []
 
         when:
-        analyzer.analyze(TypeRepository.TypeSet.PLUGIN_TYPES, new Analysis() {
+        analyze(TypeRepository.TypeSet.PLUGIN_TYPES, new Analysis() {
             @Override
             void analyzeType(IClass type, Analysis.AnalysisContext context) {
                 context.report(INFO, "Found plugin: " + type.name)
@@ -34,23 +34,28 @@ class DefaultAnalyzerTest extends AbstractAnalysisSpec {
 
     def "can show types that extend something other than DefaultTask"() {
         expect:
-        analyzer.analyze(ALL_EXTERNAL_REFERENCED_TYPES, new TypeShouldExtendType("Lorg/gradle/api/DefaultTask"))
+        analyze(ALL_EXTERNAL_REFERENCED_TYPES, new TypeShouldExtendType("Lorg/gradle/api/DefaultTask"))
     }
 
     def "can show types that override setters"() {
         expect:
-        analyzer.analyze(ALL_EXTERNAL_REFERENCED_TYPES, new TypeShouldNotOverrideSetter())
+        analyze(ALL_EXTERNAL_REFERENCED_TYPES, new TypeShouldNotOverrideSetter())
     }
 
     def "can show references to internal Gradle types"() {
         expect:
-        analyzer.analyze(ALL_EXTERNAL_REFERENCED_TYPES, new ShouldNotReferenceInternalApi())
+        analyze(ALL_EXTERNAL_REFERENCED_TYPES, new ShouldNotReferenceInternalApi())
     }
 
     @Override
     protected Analyzer getAnalyzer() {
         def pluginFiles = explode(System.getProperty("plugin-files"), FileSystems.default).toList()
-        new DefaultAnalyzer(files + pluginFiles, { level, message -> println("$level: $message") })
+        new DefaultAnalyzer(files + pluginFiles)
+    }
+
+    @Override
+    protected Reporter getReporter() {
+        { level, message -> println("$level: $message") }
     }
 
     private static Stream<Path> explode(String paths, FileSystem fileSystem) {

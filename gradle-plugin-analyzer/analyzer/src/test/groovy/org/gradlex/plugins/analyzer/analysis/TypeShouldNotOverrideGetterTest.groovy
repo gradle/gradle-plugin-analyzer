@@ -14,7 +14,7 @@ class TypeShouldNotOverrideGetterTest extends AbstractAnalysisSpec {
         """)
 
         when:
-        analyzer.analyze(EXTERNAL_TASK_TYPES, new TypeShouldNotOverrideGetter())
+        analyze(EXTERNAL_TASK_TYPES, new TypeShouldNotOverrideGetter())
 
         then:
         reports == [
