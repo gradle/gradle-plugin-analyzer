@@ -12,21 +12,28 @@ public record TypeResolverImpl(ClassHierarchy hierarchy) implements TypeResolver
     @Override
     public TypeReference findReference(String name) {
         var normalizedTypeName = normalizeTypeName(name);
+        if (normalizedTypeName == null) {
+            return null;
+        }
         var reference = TypeReference.find(hierarchy.getScope().getApplicationLoader(), normalizedTypeName);
         if (reference == null) {
             return null;
         }
         // Unpack array types
-        while (reference.isArrayType()) {
-            reference = reference.getArrayElementType();
+        if (reference.isArrayType()) {
+            reference = reference.getInnermostElementType();
         }
         return reference;
     }
 
+    @Nullable
     private static TypeName normalizeTypeName(String typeName) {
         var normalizedName = typeName.endsWith(";")
             ? typeName.substring(0, typeName.length() - 1)
             : typeName;
+        if (normalizedName.isEmpty()) {
+            return null;
+        }
         return TypeName.findOrCreate(normalizedName);
     }
 
@@ -42,6 +49,9 @@ public record TypeResolverImpl(ClassHierarchy hierarchy) implements TypeResolver
     @Override
     @Nullable
     public IClass findClass(TypeReference reference) {
+        if (reference.isArrayType()) {
+            reference = reference.getInnermostElementType();
+        }
         if (reference.isPrimitiveType()) {
             return null;
         }
