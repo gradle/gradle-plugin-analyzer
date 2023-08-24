@@ -17,10 +17,6 @@ public class DefaultAnalyzer implements Analyzer {
     private final Reporter reporter;
     private final TypeRepository typeRepository;
 
-    public DefaultAnalyzer(Collection<Path> classpath) throws ClassHierarchyException, IOException {
-        this(classpath, (level, message) -> LOGGER.atLevel(level).log(message));
-    }
-
     public DefaultAnalyzer(Collection<Path> classpath, Reporter reporter) throws ClassHierarchyException, IOException {
         this.reporter = reporter;
         this.typeRepository = new TypeRepository(classpath);
