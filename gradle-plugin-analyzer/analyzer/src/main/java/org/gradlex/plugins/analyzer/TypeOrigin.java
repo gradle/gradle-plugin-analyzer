@@ -61,7 +61,8 @@ public enum TypeOrigin {
         .collect(ImmutableList.toImmutableList());
 
     private static final List<Pattern> INTERNAL_PACKAGES = Stream.of(
-            "**/internal/**"
+            "**/internal/**",
+            "net/rubygrapefruit/**"
         ).map(TypeOrigin::toPackagePattern)
         .collect(ImmutableList.toImmutableList());
     private final boolean gradleApi;
