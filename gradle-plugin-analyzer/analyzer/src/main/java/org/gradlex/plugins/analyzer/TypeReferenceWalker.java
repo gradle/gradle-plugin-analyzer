@@ -127,27 +127,23 @@ public class TypeReferenceWalker {
     }
 
     private static void visitHierarchy(IClass baseType, ReferenceVisitor visitor) {
-        WalaUtil.visitHierarchy(baseType, type -> directSuperTypes(type)
-            .flatMap(superType -> switch (TypeOrigin.of(superType)) {
-                case PUBLIC ->
+        WalaUtil.visitTypeHierarchy(baseType, superType -> {
+            switch (TypeOrigin.of(superType)) {
+                case PUBLIC -> {
                     // Ignore referenced public types and their supertypes
-                    Stream.<IClass>empty();
+                    return false;
+                }
                 case INTERNAL -> {
                     // Report referenced internal type
                     visitor.visitReference(superType);
-                    yield Stream.<IClass>empty();
+                    return false;
                 }
-                default ->
+                default -> {
                     // Visit external supertype
-                    Stream.of(superType);
-            })
-        );
-    }
-
-    private static Stream<IClass> directSuperTypes(IClass type) {
-        return Stream.concat(
-            Stream.ofNullable(type.getSuperclass()),
-            type.getDirectInterfaces().stream());
+                    return true;
+                }
+            }
+        });
     }
 
     private static void visitReferencedTypes(IInstruction instruction, ReferenceVisitor visitor) {
