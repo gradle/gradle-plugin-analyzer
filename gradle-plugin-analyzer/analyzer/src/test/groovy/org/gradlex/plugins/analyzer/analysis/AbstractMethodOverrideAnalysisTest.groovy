@@ -23,7 +23,7 @@ class AbstractMethodOverrideAnalysisTest extends AbstractAnalysisSpec {
         """)
 
         when:
-        analyzer.analyze(EXTERNAL_TASK_TYPES, analysis)
+        analyze(EXTERNAL_TASK_TYPES, analysis)
 
         then:
         reports == [
@@ -44,7 +44,7 @@ class AbstractMethodOverrideAnalysisTest extends AbstractAnalysisSpec {
         """)
 
         when:
-        analyzer.analyze(EXTERNAL_TASK_TYPES, analysis)
+        analyze(EXTERNAL_TASK_TYPES, analysis)
 
         then:
         reports == [
@@ -69,7 +69,7 @@ class AbstractMethodOverrideAnalysisTest extends AbstractAnalysisSpec {
         """)
 
         when:
-        analyzer.analyze(EXTERNAL_TASK_TYPES, analysis)
+        analyze(EXTERNAL_TASK_TYPES, analysis)
 
         then:
         reports == [
@@ -91,7 +91,7 @@ class AbstractMethodOverrideAnalysisTest extends AbstractAnalysisSpec {
         """)
 
         when:
-        analyzer.analyze(EXTERNAL_TASK_TYPES, analysis)
+        analyze(EXTERNAL_TASK_TYPES, analysis)
 
         then:
         reports == [
@@ -120,7 +120,7 @@ class AbstractMethodOverrideAnalysisTest extends AbstractAnalysisSpec {
         """)
 
         when:
-        analyzer.analyze(EXTERNAL_TASK_TYPES, analysis)
+        analyze(EXTERNAL_TASK_TYPES, analysis)
 
         then:
         reports == [
@@ -140,7 +140,7 @@ class AbstractMethodOverrideAnalysisTest extends AbstractAnalysisSpec {
         """)
 
         when:
-        analyzer.analyze(EXTERNAL_TASK_TYPES, analysis)
+        analyze(EXTERNAL_TASK_TYPES, analysis)
 
         then:
         reports == [
@@ -160,7 +160,7 @@ class AbstractMethodOverrideAnalysisTest extends AbstractAnalysisSpec {
         """)
 
         when:
-        analyzer.analyze(EXTERNAL_TASK_TYPES, analysis)
+        analyze(EXTERNAL_TASK_TYPES, analysis)
 
         then:
         reports == [
@@ -178,7 +178,7 @@ class AbstractMethodOverrideAnalysisTest extends AbstractAnalysisSpec {
         """)
 
         when:
-        analyzer.analyze(EXTERNAL_TASK_TYPES, analysis)
+        analyze(EXTERNAL_TASK_TYPES, analysis)
 
         then:
         reports == [

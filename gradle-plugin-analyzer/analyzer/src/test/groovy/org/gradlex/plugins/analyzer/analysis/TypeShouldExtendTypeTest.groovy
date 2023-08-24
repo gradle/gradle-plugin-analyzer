@@ -11,7 +11,7 @@ class TypeShouldExtendTypeTest extends AbstractAnalysisSpec {
         """)
 
         when:
-        analyzer.analyze(EXTERNAL_TASK_TYPES, new TypeShouldExtendType("Lorg/gradle/api/DefaultTask"))
+        analyze(EXTERNAL_TASK_TYPES, new TypeShouldExtendType("Lorg/gradle/api/DefaultTask"))
 
         then:
         reports == [

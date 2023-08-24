@@ -2,8 +2,11 @@ package org.gradlex.plugins.analyzer.analysis
 
 import com.google.common.collect.ImmutableList
 import org.codehaus.groovy.control.CompilerConfiguration
+import org.gradlex.plugins.analyzer.Analysis
 import org.gradlex.plugins.analyzer.Analyzer
 import org.gradlex.plugins.analyzer.DefaultAnalyzer
+import org.gradlex.plugins.analyzer.Reporter
+import org.gradlex.plugins.analyzer.TypeRepository.TypeSet
 import org.jetbrains.kotlin.cli.common.ExitCode
 import org.jetbrains.kotlin.cli.common.arguments.K2JVMCompilerArguments
 import org.jetbrains.kotlin.cli.common.messages.MessageRenderer
@@ -23,7 +26,7 @@ class AbstractAnalysisSpec extends Specification {
     String gradleApi
     String localGroovy
     String localKotlin
-    List<String> reports
+    List<String> messages
     List<Path> files
     Analyzer analyzer
     File sourceDirectory = new File("build/test-classes/${getClass().simpleName}/sources")
@@ -39,17 +42,25 @@ class AbstractAnalysisSpec extends Specification {
         localGroovy = System.getProperty("local-groovy")
         localKotlin = System.getProperty("local-kotlin")
         files = [Paths.get(gradleApi), targetDirectory.toPath()]
-        reports = []
+        messages = []
     }
 
     protected Analyzer getAnalyzer() {
-        analyzer = new DefaultAnalyzer(files, { level, message ->
-            reports += "$level: $message" as String
-        })
+        analyzer = new DefaultAnalyzer(files)
+    }
+
+    protected Reporter getReporter() {
+        { level, message ->
+            messages += "$level: $message" as String
+        }
+    }
+
+    protected void analyze(TypeSet set, Analysis analysis) {
+        getAnalyzer().analyze(set, analysis, getReporter())
     }
 
     protected List<String> getReports() {
-        ImmutableList.sortedCopyOf(reports)
+        ImmutableList.sortedCopyOf(messages)
     }
 
     protected void compileJava(String source) {

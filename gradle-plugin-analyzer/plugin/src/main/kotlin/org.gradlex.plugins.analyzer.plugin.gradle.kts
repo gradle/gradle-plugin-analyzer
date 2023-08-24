@@ -1,10 +1,16 @@
+import com.google.common.collect.ArrayListMultimap
+import com.google.common.collect.ImmutableList
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromStream
 import kotlinx.serialization.json.encodeToStream
 import org.gradle.internal.Actions
+import org.gradlex.plugins.analyzer.Analysis
+import org.gradlex.plugins.analyzer.Analyzer
 import org.gradlex.plugins.analyzer.DefaultAnalyzer
+import org.gradlex.plugins.analyzer.Reporter
+import org.gradlex.plugins.analyzer.TypeRepository.TypeSet
 import org.gradlex.plugins.analyzer.TypeRepository.TypeSet.ALL_EXTERNAL_REFERENCED_TYPES
 import org.gradlex.plugins.analyzer.TypeRepository.TypeSet.EXTERNAL_TASK_TYPES
 import org.gradlex.plugins.analyzer.analysis.ShouldNotReferenceInternalApi
@@ -52,6 +58,9 @@ open class PluginAnalyzerExtension(objects: ObjectFactory) {
 @Serializable
 data class Message(val level: String, val message: String)
 
+@Serializable
+data class MessageGroup(val title: String, val messages: List<Message>)
+
 @CacheableTask
 abstract class PluginAnalyzerTask : DefaultTask() {
     @get:Classpath
@@ -88,21 +97,30 @@ abstract class PluginAnalyzerTask : DefaultTask() {
         override fun execute() {
             val files = parameters.runtime.files.map(File::toPath) +
                 parameters.classpath.files.map(File::toPath)
-            val messages = mutableListOf<Message>()
-            val analyzer = DefaultAnalyzer(files) { messageLevel, message ->
-                if (messageLevel.toInt() >= parameters.level.get().toInt()) {
-                    messages.add(Message(messageLevel.name, message))
+            val messageGroups = mutableListOf<MessageGroup>()
+            val analyzer = DefaultAnalyzer(files)
+
+            fun Analyzer.analyze(title: String, set: TypeSet, analysis: Analysis) {
+                val builder = ImmutableList.builder<Message>()
+                analyze(set, analysis, Reporter { level, message ->
+                    if (level.toInt() >= parameters.level.get().toInt()) {
+                        builder.add(Message(level.name, message))
+                    }
+                })
+                val messages = builder.build()
+                if (!messages.isEmpty()) {
+                    messageGroups.add(MessageGroup(title, messages))
                 }
             }
 
-            analyzer.analyze(EXTERNAL_TASK_TYPES, TypeShouldExtendType("Lorg/gradle/api/DefaultTask"))
-            analyzer.analyze(ALL_EXTERNAL_REFERENCED_TYPES, TypeShouldNotOverrideSetter())
-            analyzer.analyze(ALL_EXTERNAL_REFERENCED_TYPES, TypeShouldNotOverrideGetter())
-            analyzer.analyze(ALL_EXTERNAL_REFERENCED_TYPES, ShouldNotReferenceInternalApi())
+            analyzer.analyze("Task should extend DefaultTask", EXTERNAL_TASK_TYPES, TypeShouldExtendType("Lorg/gradle/api/DefaultTask"))
+            analyzer.analyze("Should not override setter", ALL_EXTERNAL_REFERENCED_TYPES, TypeShouldNotOverrideSetter())
+            analyzer.analyze("Should not override getter", ALL_EXTERNAL_REFERENCED_TYPES, TypeShouldNotOverrideGetter())
+            analyzer.analyze("Should not reference internal Gradle API", ALL_EXTERNAL_REFERENCED_TYPES, ShouldNotReferenceInternalApi())
 
             val report = parameters.reportFile.get().asFile
             FileOutputStream(report).use { stream ->
-                Json.encodeToStream(messages, stream)
+                Json.encodeToStream(messageGroups, stream)
             }
         }
     }
@@ -141,15 +159,19 @@ abstract class FormatReportTask : DefaultTask() {
         val outputFile = markdownReport.get().asFile
 
         PrintWriter(outputFile).use { writer ->
-            writer.println("## [`${pluginId.get()}`](https://plugins.gradle.org/plugin/${pluginId.get()})")
+            writer.println("## Plugin [`${pluginId.get()}`](https://plugins.gradle.org/plugin/${pluginId.get()})")
             writer.println()
 
-            val messages = FileInputStream(inputFile).use { stream ->
-                Json.decodeFromStream<List<Message>>(stream)
+            val messageGroups = FileInputStream(inputFile).use { stream ->
+                Json.decodeFromStream<List<MessageGroup>>(stream)
             }
-            if (messages.isNotEmpty()) {
-                messages.forEach { message ->
-                    writer.println("- ${message.level}: ${message.message}")
+            if (messageGroups.isNotEmpty()) {
+                messageGroups.forEach { messageGroup ->
+                    writer.println("### ${messageGroup.title}")
+                    writer.println()
+                    messageGroup.messages.forEach { message ->
+                        writer.println("- ${message.level}: ${message.message}")
+                    }
                 }
             } else {
                 writer.println("No messages generated. Good plugin!")
