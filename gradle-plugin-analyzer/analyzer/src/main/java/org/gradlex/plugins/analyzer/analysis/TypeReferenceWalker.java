@@ -110,7 +110,7 @@ public class TypeReferenceWalker {
         getDeclaredExceptions(method).forEach(declarationVisitor::visitReference);
 
         ReferenceVisitor bodyVisitor = visitorFactory.forMethodBody(method);
-        WalaUtil.instructions(method)
+        Arrays.stream(WalaUtil.instructions(method))
             .forEach(instruction -> visitReferencedTypes(instruction, bodyVisitor));
     }
 

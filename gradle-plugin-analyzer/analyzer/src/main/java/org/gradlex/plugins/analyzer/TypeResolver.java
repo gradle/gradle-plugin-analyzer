@@ -1,14 +1,12 @@
 package org.gradlex.plugins.analyzer;
 
 import com.ibm.wala.classLoader.IClass;
-import com.ibm.wala.ipa.cha.ClassHierarchy;
 import com.ibm.wala.types.TypeReference;
 
 import javax.annotation.Nullable;
 import java.util.Objects;
 
 public interface TypeResolver {
-    ClassHierarchy hierarchy();
 
     @Nullable
     TypeReference findReference(String name);

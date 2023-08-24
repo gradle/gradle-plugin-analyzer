@@ -5,13 +5,11 @@ import com.google.common.collect.ImmutableList;
 import com.ibm.wala.classLoader.IClass;
 import com.ibm.wala.classLoader.IMember;
 import com.ibm.wala.classLoader.IMethod;
-import com.ibm.wala.classLoader.ShrikeCTMethod;
 import com.ibm.wala.shrike.shrikeBT.IInstruction;
 import com.ibm.wala.shrike.shrikeBT.IInvokeInstruction;
 import com.ibm.wala.shrike.shrikeBT.IInvokeInstruction.Dispatch;
 import com.ibm.wala.shrike.shrikeBT.ILoadInstruction;
 import com.ibm.wala.shrike.shrikeBT.ReturnInstruction;
-import com.ibm.wala.shrike.shrikeCT.InvalidClassFileException;
 import com.ibm.wala.types.TypeReference;
 import org.gradlex.plugins.analyzer.Analysis;
 import org.gradlex.plugins.analyzer.TypeOrigin;
@@ -57,9 +55,8 @@ public abstract class AbstractMethodOverrideAnalysis implements Analysis {
     }
 
     private void reportOverriddenMethod(AnalysisContext context, IClass type, IMethod method, IMethod overriddenMethod) {
-        ShrikeCTMethod methodImpl = (ShrikeCTMethod) method;
         try {
-            InstructionQueue queue = new InstructionQueue(methodImpl.getInstructions());
+            InstructionQueue queue = new InstructionQueue(WalaUtil.instructions(method));
 
             // Check if dynamic Groovi
             // Invoke(STATIC,<type>;,$getCallSiteArray,()[Lorg/codehaus/groovy/runtime/callsite/CallSite;)
@@ -70,20 +67,18 @@ public abstract class AbstractMethodOverrideAnalysis implements Analysis {
                     invokeInstruction -> context.report(Level.WARN, String.format("The dynamic Groovy %s %s() in %s overrides Gradle API from %s",
                         methodType, method.getName(), type.getName(), overriddenMethod.getDeclaringClass().getName())),
                     () -> {
-                        checkJavaInstructions(methodImpl, queue);
+                        checkJavaInstructions(method, queue);
                         context.report(Level.INFO, String.format("The %s %s() in %s overrides Gradle API from %s, but calls only super()",
                             methodType, method.getName(), type.getName(), overriddenMethod.getDeclaringClass().getName()));
                     }
                 );
-        } catch (InvalidClassFileException e) {
-            throw new RuntimeException(e);
         } catch (AnalysisException ex) {
             context.report(Level.WARN, String.format("The %s %s() in %s overrides Gradle API from %s with custom logic: %s",
                 methodType, method.getName(), type.getName(), overriddenMethod.getDeclaringClass().getName(), ex.getMessage()));
         }
     }
 
-    private static void checkJavaInstructions(ShrikeCTMethod method, InstructionQueue queue) throws AnalysisException {
+    private static void checkJavaInstructions(IMethod method, InstructionQueue queue) throws AnalysisException {
         queue.expectNext(ILoadInstruction.class, iLoad ->
             WalaUtil.matchesType(iLoad::getType, TypeReference.JavaLangObject)
             && iLoad.getVarIndex() == 0);
