@@ -6,10 +6,10 @@ import com.ibm.wala.classLoader.IMethod;
 import com.ibm.wala.types.TypeReference;
 import org.gradlex.plugins.analyzer.Analysis;
 import org.gradlex.plugins.analyzer.TypeOrigin;
+import org.gradlex.plugins.analyzer.TypeResolver;
 import org.gradlex.plugins.analyzer.analysis.TypeReferenceWalker.ReferenceVisitor;
 import org.gradlex.plugins.analyzer.analysis.TypeReferenceWalker.ReferenceVisitorFactory;
 
-import javax.annotation.Nullable;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
@@ -38,7 +38,7 @@ public class ShouldNotReferenceInternalApi implements Analysis {
 
         @Override
         public ReferenceVisitor forTypeHierarchy(IClass type) {
-            return new Recorder() {
+            return new Recorder(context.getResolver()) {
                 @Override
                 protected String formatReference(String reference) {
                     return "Type %s extends %s".formatted(type.getName(), reference);
@@ -53,7 +53,7 @@ public class ShouldNotReferenceInternalApi implements Analysis {
 
         @Override
         public ReferenceVisitor forFieldDeclaration(IField field) {
-            return new Recorder() {
+            return new Recorder(context.getResolver()) {
                 @Override
                 protected String formatReference(String reference) {
                     return "Field %s references %s".formatted(field.getName(), reference);
@@ -68,7 +68,7 @@ public class ShouldNotReferenceInternalApi implements Analysis {
 
         @Override
         public ReferenceVisitor forMethodDeclaration(IMethod originMethod) {
-            return new Recorder() {
+            return new Recorder(context.getResolver()) {
                 @Override
                 protected String formatReference(String reference) {
                     return "Method declaration %s references %s".formatted(originMethod.getSignature(), reference);
@@ -78,7 +78,7 @@ public class ShouldNotReferenceInternalApi implements Analysis {
 
         @Override
         public ReferenceVisitor forMethodBody(IMethod originMethod) {
-            return new Recorder() {
+            return new Recorder(context.getResolver()) {
                 @Override
                 protected String formatReference(String reference) {
                     return "Method %s references %s".formatted(originMethod.getSignature(), reference);
@@ -92,7 +92,7 @@ public class ShouldNotReferenceInternalApi implements Analysis {
         }
 
         private ReferenceVisitor forAnnotations(String subject) {
-            return new Recorder() {
+            return new Recorder(context.getResolver()) {
                 @Override
                 protected String formatReference(String reference) {
                     return "Annotation on %s references %s".formatted(subject, reference);
@@ -101,10 +101,8 @@ public class ShouldNotReferenceInternalApi implements Analysis {
         }
 
         public abstract class Recorder extends ReferenceVisitor {
-            @Nullable
-            @Override
-            protected TypeReference findReference(String typeName) {
-                return context.getResolver().findReference(typeName);
+            public Recorder(TypeResolver typeResolver) {
+                super(typeResolver);
             }
 
             @Override

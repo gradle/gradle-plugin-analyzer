@@ -19,7 +19,6 @@ import org.gradlex.plugins.analyzer.analysis.TypeReferenceWalker.ReferenceVisito
 import org.gradlex.plugins.analyzer.analysis.TypeReferenceWalker.ReferenceVisitorFactory;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -143,13 +142,7 @@ public class TypeRepository {
                 var queue = new ArrayDeque<>(allExternalTypes);
                 var seenTypes = new HashSet<>(allExternalTypes);
 
-                ReferenceVisitor visitor = new ReferenceVisitor() {
-                    @Nullable
-                    @Override
-                    protected TypeReference findReference(String typeName) {
-                        return typeResolver.findReference(typeName);
-                    }
-
+                ReferenceVisitor visitor = new ReferenceVisitor(typeResolver) {
                     @Override
                     public void visitReference(TypeReference reference) {
                         IClass type = typeResolver.findClass(reference);

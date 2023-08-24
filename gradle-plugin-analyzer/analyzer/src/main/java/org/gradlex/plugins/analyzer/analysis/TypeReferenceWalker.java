@@ -42,6 +42,7 @@ import com.ibm.wala.shrike.shrikeCT.InvalidClassFileException;
 import com.ibm.wala.types.TypeReference;
 import com.ibm.wala.types.annotations.Annotation;
 import org.gradlex.plugins.analyzer.TypeOrigin;
+import org.gradlex.plugins.analyzer.TypeResolver;
 import org.gradlex.plugins.analyzer.WalaUtil;
 
 import javax.annotation.Nullable;
@@ -313,11 +314,14 @@ public class TypeReferenceWalker {
     }
 
     public abstract static class ReferenceVisitor {
-        @Nullable
-        protected abstract TypeReference findReference(String typeName);
+        private final TypeResolver typeResolver;
+
+        protected ReferenceVisitor(TypeResolver typeResolver) {
+            this.typeResolver = typeResolver;
+        }
 
         public void visitReference(String typeName) {
-            TypeReference reference = findReference(typeName);
+            TypeReference reference = typeResolver.findReference(typeName);
             if (reference != null) {
                 visitReference(reference);
             }
