@@ -87,7 +87,13 @@ public class TypeReferenceWalker {
                         return vAnnotation.elementValues.values().stream();
                     } else if (value instanceof ConstantElementValue vConst) {
                         if (vConst.val instanceof String typeName) {
-                            visitor.visitReference(typeName);
+                            try {
+                                visitor.visitReference(typeName);
+                            } catch (IllegalArgumentException ignored) {
+                                // Sometimes we end up here when the argument is not a Class, but a String with some random crap.
+                                // We could look at the Annotation's parameter definitions, and figure if it was a Class.
+                                // But it's probably also fine to have some very unlikely false positives here.
+                            }
                         }
                     } else if (value instanceof EnumElementValue vEnum) {
                         visitor.visitReference(vEnum.enumType);
