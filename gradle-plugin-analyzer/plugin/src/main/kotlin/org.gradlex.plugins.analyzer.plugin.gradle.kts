@@ -1,4 +1,3 @@
-import com.google.common.collect.ArrayListMultimap
 import com.google.common.collect.ImmutableList
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
@@ -26,6 +25,8 @@ import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 
 plugins {
     // Required since we are resolving JVM artifacts
@@ -193,6 +194,11 @@ abstract class PluginAnalysisCollectorTask : DefaultTask() {
     fun execute() {
         val report = aggregateReportFile.get().asFile
         PrintWriter(report).use { writer ->
+            writer.println("# Plugin validation report")
+            writer.println()
+            writer.println("Produced at **${LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))}**")
+            writer.println()
+
             inputReports.files.forEach { inputReport ->
                 writer.println(inputReport.readText())
             }
