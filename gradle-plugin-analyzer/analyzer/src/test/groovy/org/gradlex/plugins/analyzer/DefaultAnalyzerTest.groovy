@@ -12,7 +12,7 @@ import java.nio.file.Paths
 import java.util.regex.Pattern
 import java.util.stream.Stream
 
-import static org.gradlex.plugins.analyzer.TypeRepository.TypeSet.EXTERNAL_TASK_TYPES
+import static org.gradlex.plugins.analyzer.TypeRepository.TypeSet.ALL_EXTERNAL_REFERENCED_TYPES
 import static org.slf4j.event.Level.INFO
 
 class DefaultAnalyzerTest extends Specification {
@@ -41,7 +41,7 @@ class DefaultAnalyzerTest extends Specification {
         pluginTypes.size() > 0
     }
 
-    def "can show tasks that extend something other than DefaultTask"() {
+    def "can show types that extend something other than DefaultTask"() {
         def files = []
 
         def pluginFiles = System.getProperty("plugin-files")
@@ -53,10 +53,10 @@ class DefaultAnalyzerTest extends Specification {
         def analyzer = new DefaultAnalyzer(files)
 
         expect:
-        analyzer.analyze(EXTERNAL_TASK_TYPES, new TypeShouldExtendType("Lorg/gradle/api/DefaultTask"))
+        analyzer.analyze(ALL_EXTERNAL_REFERENCED_TYPES, new TypeShouldExtendType("Lorg/gradle/api/DefaultTask"))
     }
 
-    def "can show tasks that override setters"() {
+    def "can show types that override setters"() {
         def files = []
 
         def pluginFiles = System.getProperty("plugin-files")
@@ -68,7 +68,7 @@ class DefaultAnalyzerTest extends Specification {
         def analyzer = new DefaultAnalyzer(files)
 
         expect:
-        analyzer.analyze(EXTERNAL_TASK_TYPES, new TypeShouldNotOverrideSetter())
+        analyzer.analyze(ALL_EXTERNAL_REFERENCED_TYPES, new TypeShouldNotOverrideSetter())
     }
 
     private static Stream<Path> explode(String paths, FileSystem fileSystem) {
