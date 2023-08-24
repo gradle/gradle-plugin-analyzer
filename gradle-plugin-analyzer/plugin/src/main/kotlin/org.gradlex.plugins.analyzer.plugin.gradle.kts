@@ -129,7 +129,12 @@ abstract class PluginAnalyzerTask : DefaultTask() {
     @TaskAction
     fun execute() {
         val task = this
-        workerExecutor.processIsolation()
+        workerExecutor.processIsolation {
+            forkOptions {
+                // Seems to help analyze Kotlin plugins quite a bit
+                maxHeapSize = "1g"
+            }
+        }
             .submit(Work::class) {
                 classpath = task.classpath
                 runtime = task.runtime
