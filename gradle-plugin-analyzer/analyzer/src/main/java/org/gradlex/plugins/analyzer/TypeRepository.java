@@ -3,7 +3,6 @@ package org.gradlex.plugins.analyzer;
 import com.google.common.collect.ImmutableList;
 import com.ibm.wala.classLoader.BinaryDirectoryTreeModule;
 import com.ibm.wala.classLoader.IClass;
-import com.ibm.wala.classLoader.IField;
 import com.ibm.wala.classLoader.IMethod;
 import com.ibm.wala.core.util.config.AnalysisScopeReader;
 import com.ibm.wala.ipa.callgraph.AnalysisScope;
@@ -14,9 +13,8 @@ import com.ibm.wala.types.ClassLoaderReference;
 import com.ibm.wala.types.Selector;
 import com.ibm.wala.types.TypeReference;
 import com.ibm.wala.util.config.FileOfClasses;
-import org.gradlex.plugins.analyzer.analysis.TypeReferenceWalker;
-import org.gradlex.plugins.analyzer.analysis.TypeReferenceWalker.ReferenceVisitor;
-import org.gradlex.plugins.analyzer.analysis.TypeReferenceWalker.ReferenceVisitorFactory;
+import org.gradlex.plugins.analyzer.TypeReferenceWalker.ReferenceVisitor;
+import org.gradlex.plugins.analyzer.TypeReferenceWalker.ReferenceVisitorFactory;
 
 import javax.annotation.Nonnull;
 import java.io.ByteArrayInputStream;
@@ -168,42 +166,7 @@ public class TypeRepository {
                         }
                     }
                 };
-                ReferenceVisitorFactory visitorFactory = new ReferenceVisitorFactory() {
-                    @Override
-                    public ReferenceVisitor forTypeHierarchy(IClass type) {
-                        return visitor;
-                    }
-
-                    @Override
-                    public ReferenceVisitor forTypeAnnotations(IClass type) {
-                        return visitor;
-                    }
-
-                    @Override
-                    public ReferenceVisitor forFieldDeclaration(IField field) {
-                        return visitor;
-                    }
-
-                    @Override
-                    public ReferenceVisitor forFieldAnnotations(IField field) {
-                        return visitor;
-                    }
-
-                    @Override
-                    public ReferenceVisitor forMethodDeclaration(IMethod originMethod) {
-                        return visitor;
-                    }
-
-                    @Override
-                    public ReferenceVisitor forMethodBody(IMethod originMethod) {
-                        return visitor;
-                    }
-
-                    @Override
-                    public ReferenceVisitor forMethodAnnotations(IMethod method) {
-                        return visitor;
-                    }
-                };
+                ReferenceVisitorFactory visitorFactory = ReferenceVisitorFactory.alwaysWith(visitor);
 
                 while (true) {
                     IClass type = queue.poll();

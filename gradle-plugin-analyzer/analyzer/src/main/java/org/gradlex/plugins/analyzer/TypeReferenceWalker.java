@@ -1,4 +1,4 @@
-package org.gradlex.plugins.analyzer.analysis;
+package org.gradlex.plugins.analyzer;
 
 import com.ibm.wala.classLoader.IClass;
 import com.ibm.wala.classLoader.IField;
@@ -41,9 +41,6 @@ import com.ibm.wala.shrike.shrikeCT.AnnotationsReader.EnumElementValue;
 import com.ibm.wala.shrike.shrikeCT.InvalidClassFileException;
 import com.ibm.wala.types.TypeReference;
 import com.ibm.wala.types.annotations.Annotation;
-import org.gradlex.plugins.analyzer.TypeOrigin;
-import org.gradlex.plugins.analyzer.TypeResolver;
-import org.gradlex.plugins.analyzer.WalaUtil;
 
 import javax.annotation.Nullable;
 import java.util.Arrays;
@@ -311,6 +308,45 @@ public class TypeReferenceWalker {
         ReferenceVisitor forMethodBody(IMethod originMethod);
 
         ReferenceVisitor forMethodAnnotations(IMethod method);
+
+        static ReferenceVisitorFactory alwaysWith(ReferenceVisitor visitor) {
+            return new ReferenceVisitorFactory() {
+                @Override
+                public ReferenceVisitor forTypeHierarchy(IClass type) {
+                    return visitor;
+                }
+
+                @Override
+                public ReferenceVisitor forTypeAnnotations(IClass type) {
+                    return visitor;
+                }
+
+                @Override
+                public ReferenceVisitor forFieldDeclaration(IField field) {
+                    return visitor;
+                }
+
+                @Override
+                public ReferenceVisitor forFieldAnnotations(IField field) {
+                    return visitor;
+                }
+
+                @Override
+                public ReferenceVisitor forMethodDeclaration(IMethod originMethod) {
+                    return visitor;
+                }
+
+                @Override
+                public ReferenceVisitor forMethodBody(IMethod originMethod) {
+                    return visitor;
+                }
+
+                @Override
+                public ReferenceVisitor forMethodAnnotations(IMethod method) {
+                    return visitor;
+                }
+            };
+        }
     }
 
     public abstract static class ReferenceVisitor {

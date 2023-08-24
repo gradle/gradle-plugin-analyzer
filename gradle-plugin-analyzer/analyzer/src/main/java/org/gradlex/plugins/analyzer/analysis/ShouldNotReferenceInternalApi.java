@@ -6,9 +6,10 @@ import com.ibm.wala.classLoader.IMethod;
 import com.ibm.wala.types.TypeReference;
 import org.gradlex.plugins.analyzer.Analysis;
 import org.gradlex.plugins.analyzer.TypeOrigin;
+import org.gradlex.plugins.analyzer.TypeReferenceWalker;
 import org.gradlex.plugins.analyzer.TypeResolver;
-import org.gradlex.plugins.analyzer.analysis.TypeReferenceWalker.ReferenceVisitor;
-import org.gradlex.plugins.analyzer.analysis.TypeReferenceWalker.ReferenceVisitorFactory;
+import org.gradlex.plugins.analyzer.TypeReferenceWalker.ReferenceVisitor;
+import org.gradlex.plugins.analyzer.TypeReferenceWalker.ReferenceVisitorFactory;
 
 import java.util.SortedSet;
 import java.util.TreeSet;
