@@ -6,7 +6,9 @@ import org.slf4j.event.Level;
 public interface Analysis {
     void analyzeType(IClass type, AnalysisContext context);
 
-    interface AnalysisContext extends TypeResolver {
+    interface AnalysisContext {
+        TypeResolver getResolver();
+
         void report(Level level, String message);
     }
 }

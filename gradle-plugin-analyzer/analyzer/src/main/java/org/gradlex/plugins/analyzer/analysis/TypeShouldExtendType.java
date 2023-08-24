@@ -27,7 +27,7 @@ public class TypeShouldExtendType implements Analysis {
             context.report(DEBUG, String.format("Type %s is an interface", type.getName()));
             return;
         }
-        TypeReference expected = context.getReference(expectedSuperType);
+        TypeReference expected = context.getResolver().getReference(expectedSuperType);
         // Walk type hierarchy
         Stream.iterate(type, Objects::nonNull, IClass::getSuperclass)
             // Look for the most immediate superclass from Gradle API

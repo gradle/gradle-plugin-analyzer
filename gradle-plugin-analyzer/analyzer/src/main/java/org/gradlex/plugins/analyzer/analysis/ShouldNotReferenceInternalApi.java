@@ -104,7 +104,7 @@ public class ShouldNotReferenceInternalApi implements Analysis {
             @Nullable
             @Override
             protected TypeReference findReference(String typeName) {
-                return context.findReference(typeName);
+                return context.getResolver().findReference(typeName);
             }
 
             @Override
@@ -116,7 +116,7 @@ public class ShouldNotReferenceInternalApi implements Analysis {
 
             @Override
             public void visitMethodReference(String typeName, String methodName, String methodSignature) {
-                TypeReference reference = context.findReference(typeName);
+                TypeReference reference = context.getResolver().findReference(typeName);
                 if (reference != null && TypeOrigin.of(reference) == TypeOrigin.INTERNAL) {
                     references.add(formatMethodReference(reference, methodName, methodSignature));
                 }

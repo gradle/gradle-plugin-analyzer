@@ -1,15 +1,12 @@
 package org.gradlex.plugins.analyzer;
 
-import com.ibm.wala.classLoader.IClass;
 import com.ibm.wala.ipa.cha.ClassHierarchyException;
-import com.ibm.wala.types.TypeReference;
 import org.gradlex.plugins.analyzer.Analysis.AnalysisContext;
 import org.gradlex.plugins.analyzer.TypeRepository.TypeSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.event.Level;
 
-import javax.annotation.Nullable;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Collection;
@@ -34,23 +31,9 @@ public class DefaultAnalyzer implements Analyzer {
         TypeResolverImpl typeResolver = typeRepository.getTypeResolver();
         typeRepository.getTypeSet(typeSet).forEach(type -> {
             analysis.analyzeType(type, new AnalysisContext() {
-                // TODO Expose TypeResolver directly
-                @Nullable
                 @Override
-                public TypeReference findReference(String name) {
-                    return typeResolver.findReference(name);
-                }
-
-                @Nullable
-                @Override
-                public IClass findClass(TypeReference reference) {
-                    return typeResolver.findClass(reference);
-                }
-
-                @Nullable
-                @Override
-                public IClass findClass(String name) {
-                    return typeResolver.findClass(name);
+                public TypeResolver getResolver() {
+                    return typeResolver;
                 }
 
                 @Override
