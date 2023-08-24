@@ -9,6 +9,7 @@ import com.ibm.wala.types.TypeReference;
 
 import java.util.ArrayDeque;
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -23,12 +24,8 @@ public class WalaUtil {
     public static IInstruction[] instructions(IMethod method) {
         try {
             IInstruction[] instructions = ((ShrikeCTMethod) method).getInstructions();
-            if (instructions != null) {
-                return instructions;
-            } else {
-                // TODO Why can't we sometimes get the instructions?
-                return new IInstruction[0];
-            }
+            // TODO Why can't we sometimes get the instructions?
+            return Objects.requireNonNullElseGet(instructions, () -> new IInstruction[0]);
         } catch (InvalidClassFileException e) {
             throw new RuntimeException(e);
         }
