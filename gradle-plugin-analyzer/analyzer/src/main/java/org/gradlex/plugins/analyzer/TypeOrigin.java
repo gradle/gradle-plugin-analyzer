@@ -81,17 +81,20 @@ public enum TypeOrigin {
             @Override
             public TypeOrigin load(TypeName type) {
                 String className = type.toString();
-                if (className.startsWith("Lorg/gradle/") || className.startsWith("Lnet/rubygrapefruit/")) {
+                if (className.startsWith("Lorg/gradle/")
+                    || className.startsWith("Lnet/rubygrapefruit/")
+                ) {
                     if (INTERNAL_PACKAGES.stream().noneMatch(pattern -> matches(pattern, className))
                         && PUBLIC_PACKAGES.stream().anyMatch(pattern -> matches(pattern, className))) {
                         return PUBLIC;
                     } else {
                         return INTERNAL;
                     }
-                } else if (
-                    className.startsWith("Ljava/") || className.startsWith("Ljavax/") || className.startsWith("Ljdk/")
+                }
+                if (className.startsWith("Ljava/") || className.startsWith("Ljavax/") || className.startsWith("Ljdk/")
                     || className.startsWith("Lgroovy/") || className.startsWith("Lorg/codehaus/groovy/")
                     || className.startsWith("Lkotlin/")
+                    || className.startsWith("Lorg/slf4j/")
                 ) {
                     return RUNTIME;
                 } else {
