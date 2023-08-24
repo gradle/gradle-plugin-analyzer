@@ -5,10 +5,12 @@ import kotlinx.serialization.json.decodeFromStream
 import kotlinx.serialization.json.encodeToStream
 import org.gradle.internal.Actions
 import org.gradlex.plugins.analyzer.DefaultAnalyzer
-import org.gradlex.plugins.analyzer.analysis.TaskImplementationDoesNotExtendDefaultTask
-import org.gradlex.plugins.analyzer.analysis.TaskImplementationDoesNotOverrideGetter
-import org.gradlex.plugins.analyzer.analysis.TaskImplementationDoesNotOverrideSetter
-import org.gradlex.plugins.analyzer.analysis.TaskImplementationReferencesInternalApi
+import org.gradlex.plugins.analyzer.TypeRepository.TypeSet.ALL_EXTERNAL_REFERENCED_TYPES
+import org.gradlex.plugins.analyzer.TypeRepository.TypeSet.EXTERNAL_TASK_TYPES
+import org.gradlex.plugins.analyzer.analysis.ShouldNotReferenceInternalApi
+import org.gradlex.plugins.analyzer.analysis.TypeShouldExtendType
+import org.gradlex.plugins.analyzer.analysis.TypeShouldNotOverrideGetter
+import org.gradlex.plugins.analyzer.analysis.TypeShouldNotOverrideSetter
 import org.jsoup.Jsoup
 import org.slf4j.event.Level
 import java.io.FileInputStream
@@ -93,10 +95,10 @@ abstract class PluginAnalyzerTask : DefaultTask() {
                 }
             }
 
-            analyzer.analyze(TaskImplementationDoesNotExtendDefaultTask())
-            analyzer.analyze(TaskImplementationDoesNotOverrideSetter())
-            analyzer.analyze(TaskImplementationDoesNotOverrideGetter())
-            analyzer.analyze(TaskImplementationReferencesInternalApi())
+            analyzer.analyze(EXTERNAL_TASK_TYPES, TypeShouldExtendType("Lorg/gradle/api/DefaultTask"))
+            analyzer.analyze(ALL_EXTERNAL_REFERENCED_TYPES, TypeShouldNotOverrideSetter())
+            analyzer.analyze(ALL_EXTERNAL_REFERENCED_TYPES, TypeShouldNotOverrideGetter())
+            analyzer.analyze(ALL_EXTERNAL_REFERENCED_TYPES, ShouldNotReferenceInternalApi())
 
             val report = parameters.reportFile.get().asFile
             FileOutputStream(report).use { stream ->

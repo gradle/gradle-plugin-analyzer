@@ -5,16 +5,15 @@ import com.google.common.collect.ImmutableList;
 import com.ibm.wala.classLoader.IClass;
 import com.ibm.wala.classLoader.IMember;
 import com.ibm.wala.classLoader.IMethod;
-import com.ibm.wala.classLoader.ShrikeCTMethod;
 import com.ibm.wala.shrike.shrikeBT.IInstruction;
 import com.ibm.wala.shrike.shrikeBT.IInvokeInstruction;
 import com.ibm.wala.shrike.shrikeBT.IInvokeInstruction.Dispatch;
 import com.ibm.wala.shrike.shrikeBT.ILoadInstruction;
 import com.ibm.wala.shrike.shrikeBT.ReturnInstruction;
-import com.ibm.wala.shrike.shrikeCT.InvalidClassFileException;
 import com.ibm.wala.types.TypeReference;
-import org.gradlex.plugins.analyzer.ExternalSubtypeAnalysis;
+import org.gradlex.plugins.analyzer.Analysis;
 import org.gradlex.plugins.analyzer.TypeOrigin;
+import org.gradlex.plugins.analyzer.WalaUtil;
 import org.slf4j.event.Level;
 
 import java.util.ArrayDeque;
@@ -22,21 +21,19 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.function.Predicate;
-import java.util.function.Supplier;
 import java.util.stream.Stream;
 
-public abstract class AbstractTaskImplementationDoesNotOverrideMethod extends ExternalSubtypeAnalysis {
+public abstract class AbstractMethodOverrideAnalysis implements Analysis {
     private final String methodType;
     private final Predicate<? super IMethod> filter;
 
-    public AbstractTaskImplementationDoesNotOverrideMethod(String methodType, Predicate<? super IMethod> filter) {
-        super("Lorg/gradle/api/Task");
+    public AbstractMethodOverrideAnalysis(String methodType, Predicate<? super IMethod> filter) {
         this.methodType = methodType;
         this.filter = filter;
     }
 
     @Override
-    protected void analyzeType(IClass type, AnalysisContext context) {
+    public void analyzeType(IClass type, AnalysisContext context) {
         type.getDeclaredMethods().stream()
             // Ignore bridge methods
             .filter(Predicate.not(IMethod::isBridge))
@@ -58,9 +55,8 @@ public abstract class AbstractTaskImplementationDoesNotOverrideMethod extends Ex
     }
 
     private void reportOverriddenMethod(AnalysisContext context, IClass type, IMethod method, IMethod overriddenMethod) {
-        ShrikeCTMethod methodImpl = (ShrikeCTMethod) method;
         try {
-            InstructionQueue queue = new InstructionQueue(methodImpl.getInstructions());
+            InstructionQueue queue = new InstructionQueue(WalaUtil.instructions(method));
 
             // Check if dynamic Groovi
             // Invoke(STATIC,<type>;,$getCallSiteArray,()[Lorg/codehaus/groovy/runtime/callsite/CallSite;)
@@ -71,50 +67,37 @@ public abstract class AbstractTaskImplementationDoesNotOverrideMethod extends Ex
                     invokeInstruction -> context.report(Level.WARN, String.format("The dynamic Groovy %s %s() in %s overrides Gradle API from %s",
                         methodType, method.getName(), type.getName(), overriddenMethod.getDeclaringClass().getName())),
                     () -> {
-                        checkJavaInstructions(methodImpl, queue);
+                        checkJavaInstructions(method, queue);
                         context.report(Level.INFO, String.format("The %s %s() in %s overrides Gradle API from %s, but calls only super()",
                             methodType, method.getName(), type.getName(), overriddenMethod.getDeclaringClass().getName()));
                     }
                 );
-        } catch (InvalidClassFileException e) {
-            throw new RuntimeException(e);
         } catch (AnalysisException ex) {
             context.report(Level.WARN, String.format("The %s %s() in %s overrides Gradle API from %s with custom logic: %s",
                 methodType, method.getName(), type.getName(), overriddenMethod.getDeclaringClass().getName(), ex.getMessage()));
         }
     }
 
-    private static void checkJavaInstructions(ShrikeCTMethod method, InstructionQueue queue) throws AnalysisException {
-        ILoadInstruction iLoad = queue.expectNext(ILoadInstruction.class);
-        if (!iLoad.getType().equals("Ljava/lang/Object;")) {
-            throw new AnalysisException("Load instruction has wrong type: %s", iLoad.getType());
-        }
-        if (iLoad.getVarIndex() != 0) {
-            throw new AnalysisException("Load instruction has wrong var index: %s", iLoad.getVarIndex());
-        }
+    private static void checkJavaInstructions(IMethod method, InstructionQueue queue) throws AnalysisException {
+        queue.expectNext(ILoadInstruction.class, iLoad ->
+            WalaUtil.matchesType(iLoad::getType, TypeReference.JavaLangObject)
+            && iLoad.getVarIndex() == 0);
 
         for (int paremNo = 0; paremNo < method.getNumberOfParameters() - 1; paremNo++) {
             queue.expectNext(ILoadInstruction.class);
         }
 
-        IInvokeInstruction iInvoke = queue.expectNext(IInvokeInstruction.class);
-        // Remove type prefix + '.'
-        String expectedMethodSignature = method.getSignature().substring(method.getDeclaringClass().getName().toString().length());
-        String invokedMethodSignature = iInvoke.getMethodName() + iInvoke.getMethodSignature();
-        if (!invokedMethodSignature.equals(expectedMethodSignature)) {
-            throw new AnalysisException("Invokes different method, expected: %s, got: %s", expectedMethodSignature, invokedMethodSignature);
-        }
-        if (!iInvoke.getInvocationCode().equals(Dispatch.SPECIAL)) {
-            throw new AnalysisException("Invoke instruction is not special: %s", iInvoke);
-        }
+        queue.expectNext(IInvokeInstruction.class, iInvoke -> {
+            // Remove type prefix + '.'
+            String expectedMethodSignature = method.getSignature().substring(method.getDeclaringClass().getName().toString().length());
+            String invokedMethodSignature = iInvoke.getMethodName() + iInvoke.getMethodSignature();
+            return invokedMethodSignature.equals(expectedMethodSignature)
+                && iInvoke.getInvocationCode().equals(Dispatch.SPECIAL);
+        });
 
         queue.expectNext(ReturnInstruction.class);
 
         queue.expectNoMore();
-    }
-
-    private static boolean matchesType(Supplier<String> typeName, TypeReference reference) {
-        return typeName.get().equals(reference.getName().toString() + ";");
     }
 
     private static class InstructionQueue {

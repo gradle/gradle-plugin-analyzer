@@ -9,11 +9,11 @@ import static org.gradlex.plugins.analyzer.WalaUtil.matches;
 /**
  * Task implementations should not override getters from the Gradle API.
  */
-public class TaskImplementationDoesNotOverrideGetter extends AbstractTaskImplementationDoesNotOverrideMethod {
+public class TypeShouldNotOverrideGetter extends AbstractMethodOverrideAnalysis {
     private static final Pattern GET_GETTER = Pattern.compile("get[A-Z].*");
     private static final Pattern IS_GETTER = Pattern.compile("is[A-Z].*");
 
-    public TaskImplementationDoesNotOverrideGetter() {
+    public TypeShouldNotOverrideGetter() {
         super("getter", method ->
             // Getters one argument: `this`
             (method.getNumberOfParameters() == 1)

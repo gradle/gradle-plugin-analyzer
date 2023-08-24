@@ -1,6 +1,8 @@
 package org.gradlex.plugins.analyzer.analysis
 
-class TaskImplementationDoesNotOverrideSetterTest extends AbstractAnalysisSpec {
+import static org.gradlex.plugins.analyzer.TypeRepository.TypeSet.EXTERNAL_TASK_TYPES
+
+class TypeShouldNotOverrideSetterTest extends AbstractAnalysisSpec {
     def "can detect type overriding setter"() {
         compileJava("""
             class CustomTask extends org.gradle.api.DefaultTask {
@@ -12,7 +14,7 @@ class TaskImplementationDoesNotOverrideSetterTest extends AbstractAnalysisSpec {
         """)
 
         when:
-        analyzer.analyze(new TaskImplementationDoesNotOverrideSetter())
+        analyzer.analyze(EXTERNAL_TASK_TYPES, new TypeShouldNotOverrideSetter())
 
         then:
         reports == [

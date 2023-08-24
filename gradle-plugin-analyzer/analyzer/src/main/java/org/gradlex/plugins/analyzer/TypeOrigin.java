@@ -5,8 +5,8 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.ibm.wala.classLoader.IClass;
-import com.ibm.wala.classLoader.IMethod;
 import com.ibm.wala.types.TypeName;
+import com.ibm.wala.types.TypeReference;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -61,7 +61,8 @@ public enum TypeOrigin {
         .collect(ImmutableList.toImmutableList());
 
     private static final List<Pattern> INTERNAL_PACKAGES = Stream.of(
-            "**/internal/**"
+            "**/internal/**",
+            "net/rubygrapefruit/**"
         ).map(TypeOrigin::toPackagePattern)
         .collect(ImmutableList.toImmutableList());
     private final boolean gradleApi;
@@ -80,17 +81,20 @@ public enum TypeOrigin {
             @Override
             public TypeOrigin load(TypeName type) {
                 String className = type.toString();
-                if (className.startsWith("Lorg/gradle/") || className.startsWith("Lnet/rubygrapefruit/")) {
+                if (className.startsWith("Lorg/gradle/")
+                    || className.startsWith("Lnet/rubygrapefruit/")
+                ) {
                     if (INTERNAL_PACKAGES.stream().noneMatch(pattern -> matches(pattern, className))
                         && PUBLIC_PACKAGES.stream().anyMatch(pattern -> matches(pattern, className))) {
                         return PUBLIC;
                     } else {
                         return INTERNAL;
                     }
-                } else if (
-                    className.startsWith("Ljava/") || className.startsWith("Ljavax/") || className.startsWith("Ljdk/")
+                }
+                if (className.startsWith("Ljava/") || className.startsWith("Ljavax/") || className.startsWith("Ljdk/")
                     || className.startsWith("Lgroovy/") || className.startsWith("Lorg/codehaus/groovy/")
                     || className.startsWith("Lkotlin/")
+                    || className.startsWith("Lorg/slf4j/")
                 ) {
                     return RUNTIME;
                 } else {
@@ -103,8 +107,12 @@ public enum TypeOrigin {
         return pattern.matcher(packageName).matches();
     }
 
-    static TypeOrigin of(TypeName type) {
+    public static TypeOrigin of(TypeName type) {
         return CACHE.getUnchecked(type);
+    }
+
+    public static TypeOrigin of(TypeReference reference) {
+        return of(reference.getName());
     }
 
     public static TypeOrigin of(IClass clazz) {

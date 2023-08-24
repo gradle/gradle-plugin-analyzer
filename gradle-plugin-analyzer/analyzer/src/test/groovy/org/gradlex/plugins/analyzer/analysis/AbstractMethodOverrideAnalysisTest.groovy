@@ -2,8 +2,10 @@ package org.gradlex.plugins.analyzer.analysis
 
 import com.ibm.wala.classLoader.IMethod
 
-class AbstractTaskImplementationDoesNotOverrideMethodTest extends AbstractAnalysisSpec {
-    def analysis = new AbstractTaskImplementationDoesNotOverrideMethod("method", { IMethod method -> !method.static && !method.init }) {}
+import static org.gradlex.plugins.analyzer.TypeRepository.TypeSet.EXTERNAL_TASK_TYPES
+
+class AbstractMethodOverrideAnalysisTest extends AbstractAnalysisSpec {
+    def analysis = new AbstractMethodOverrideAnalysis("method", { IMethod method -> !method.static && !method.init }) {}
 
     def "can detect super-only overriding method in plain Java code"() {
         compileJava("""
@@ -21,7 +23,7 @@ class AbstractTaskImplementationDoesNotOverrideMethodTest extends AbstractAnalys
         """)
 
         when:
-        analyzer.analyze(analysis)
+        analyzer.analyze(EXTERNAL_TASK_TYPES, analysis)
 
         then:
         reports == [
@@ -42,7 +44,7 @@ class AbstractTaskImplementationDoesNotOverrideMethodTest extends AbstractAnalys
         """)
 
         when:
-        analyzer.analyze(analysis)
+        analyzer.analyze(EXTERNAL_TASK_TYPES, analysis)
 
         then:
         reports == [
@@ -67,7 +69,7 @@ class AbstractTaskImplementationDoesNotOverrideMethodTest extends AbstractAnalys
         """)
 
         when:
-        analyzer.analyze(analysis)
+        analyzer.analyze(EXTERNAL_TASK_TYPES, analysis)
 
         then:
         reports == [
@@ -89,7 +91,7 @@ class AbstractTaskImplementationDoesNotOverrideMethodTest extends AbstractAnalys
         """)
 
         when:
-        analyzer.analyze(analysis)
+        analyzer.analyze(EXTERNAL_TASK_TYPES, analysis)
 
         then:
         reports == [
@@ -118,7 +120,7 @@ class AbstractTaskImplementationDoesNotOverrideMethodTest extends AbstractAnalys
         """)
 
         when:
-        analyzer.analyze(analysis)
+        analyzer.analyze(EXTERNAL_TASK_TYPES, analysis)
 
         then:
         reports == [
@@ -138,7 +140,7 @@ class AbstractTaskImplementationDoesNotOverrideMethodTest extends AbstractAnalys
         """)
 
         when:
-        analyzer.analyze(analysis)
+        analyzer.analyze(EXTERNAL_TASK_TYPES, analysis)
 
         then:
         reports == [
@@ -158,7 +160,7 @@ class AbstractTaskImplementationDoesNotOverrideMethodTest extends AbstractAnalys
         """)
 
         when:
-        analyzer.analyze(analysis)
+        analyzer.analyze(EXTERNAL_TASK_TYPES, analysis)
 
         then:
         reports == [
@@ -176,7 +178,7 @@ class AbstractTaskImplementationDoesNotOverrideMethodTest extends AbstractAnalys
         """)
 
         when:
-        analyzer.analyze(analysis)
+        analyzer.analyze(EXTERNAL_TASK_TYPES, analysis)
 
         then:
         reports == [
