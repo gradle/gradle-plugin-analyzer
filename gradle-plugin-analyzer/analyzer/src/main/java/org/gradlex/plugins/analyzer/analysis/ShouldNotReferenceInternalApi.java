@@ -102,7 +102,7 @@ public class ShouldNotReferenceInternalApi implements Analysis {
 
         @Override
         public ReferenceVisitor forMethodAnnotations(IMethod method) {
-            return forAnnotations("method " + method.getSignature());
+            return forAnnotations(method);
         }
 
         private ReferenceVisitor forAnnotations(Object subject) {
