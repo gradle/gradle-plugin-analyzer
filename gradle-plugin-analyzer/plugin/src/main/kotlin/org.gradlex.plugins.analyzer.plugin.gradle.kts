@@ -149,7 +149,9 @@ abstract class PluginAnalyzerTask : DefaultTask() {
         private fun formatField(field: IField) = "field `${toFQCN(field.declaringClass)}.${field.name}`"
         private fun formatMethod(method: IMethod): String {
             val paramTypes = mutableListOf<String>()
-            for (iParam in 0 until method.numberOfParameters) {
+            // Ignore 'this"
+            val firstParam = if (method.isStatic) 0 else 1
+            for (iParam in firstParam until method.numberOfParameters) {
                 // Let's use the simple name of parameter types
                 paramTypes += method.getParameterType(iParam).name.className.toString()
             }
