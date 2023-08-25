@@ -24,7 +24,7 @@ public class TypeShouldExtendType implements Analysis {
     @Override
     public void analyzeType(IClass type, AnalysisContext context) {
         if (type.isInterface()) {
-            context.report(DEBUG, String.format("Type %s is an interface", type.getName()));
+            context.report(DEBUG, "The %s is an interface", type);
             return;
         }
         TypeReference expected = context.getResolver().getReference(expectedSuperType);
@@ -35,7 +35,7 @@ public class TypeShouldExtendType implements Analysis {
             .findFirst()
             .ifPresent(superType -> {
                     if (!superType.getReference().equals(expected)) {
-                        context.report(WARN, String.format("Type %s should extend %s instead of %s", type.getName(), expected.getName(), superType.getName()));
+                        context.report(WARN, "The %s should extend %s instead of %s", type, expected, superType);
                     }
                 }
             );

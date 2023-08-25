@@ -15,7 +15,7 @@ class TypeShouldExtendTypeTest extends AbstractAnalysisSpec {
 
         then:
         reports == [
-            "WARN: Type LBadTask should extend Lorg/gradle/api/DefaultTask instead of Lorg/gradle/api/tasks/SourceTask",
+            "WARN: The type LBadTask should extend type Lorg/gradle/api/DefaultTask instead of type Lorg/gradle/api/tasks/SourceTask",
         ]
     }
 }
