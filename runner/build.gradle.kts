@@ -46,7 +46,8 @@ pluginAnalyzer {
     plugin("com.google.cloud.tools.jib")
     plugin("com.google.protobuf")
     plugin("com.gorylenko.gradle-git-properties")
-    plugin("com.gradle.build-scan")
+    // Do not analyze the GE plugin as it is full of internal references
+    // plugin("com.gradle.build-scan")
     plugin("com.gradle.plugin-publish")
     plugin("com.jfrog.artifactory")
     plugin("com.palantir.docker")
