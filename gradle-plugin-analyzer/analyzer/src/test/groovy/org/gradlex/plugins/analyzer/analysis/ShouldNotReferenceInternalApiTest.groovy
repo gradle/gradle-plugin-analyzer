@@ -22,6 +22,10 @@ class ShouldNotReferenceInternalApiTest extends AbstractAnalysisSpec {
     def "signals extending internal API"() {
         compileJava("""
             class CustomTask extends org.gradle.jvm.toolchain.internal.task.ShowToolchainsTask {
+                @Override
+                public boolean hasTaskActions() {
+                    return true;
+                }
             }
         """)
 
@@ -30,6 +34,7 @@ class ShouldNotReferenceInternalApiTest extends AbstractAnalysisSpec {
 
         then:
         reports == [
+            "WARN: Method CustomTask.hasTaskActions()Z overrides internal Gradle method Lorg/gradle/jvm/toolchain/internal/task/ShowToolchainsTask.hasTaskActionsorg.gradle.api.internal.AbstractTask.hasTaskActions()Z",
             "WARN: Type LCustomTask extends internal Gradle type Lorg/gradle/jvm/toolchain/internal/task/ShowToolchainsTask",
         ]
     }

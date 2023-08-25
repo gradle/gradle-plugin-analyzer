@@ -80,6 +80,16 @@ public class ShouldNotReferenceInternalApi implements Analysis {
         }
 
         @Override
+        public ReferenceVisitor forMethodInheritance(IMethod originMethod) {
+            return new Recorder(context.getResolver()) {
+                @Override
+                protected String formatReference(String reference) {
+                    return "Method %s overrides %s".formatted(originMethod.getSignature(), reference);
+                }
+            };
+        }
+
+        @Override
         public ReferenceVisitor forMethodBody(IMethod originMethod) {
             return new Recorder(context.getResolver()) {
                 @Override

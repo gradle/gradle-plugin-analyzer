@@ -45,12 +45,13 @@ import com.ibm.wala.types.annotations.Annotation;
 import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 public class TypeReferenceWalker {
 
     public static void walkReferences(IClass type, ReferenceVisitorFactory visitorFactory) {
-        visitHierarchy(type, visitorFactory.forTypeHierarchy(type));
+        visitImmediateInternalSupertypes(type, visitorFactory.forTypeHierarchy(type)::visitReference);
 
         visitAnnotations(type.getAnnotations(), visitorFactory.forTypeAnnotations(type));
 
@@ -113,6 +114,17 @@ public class TypeReferenceWalker {
         }
         getDeclaredExceptions(method).forEach(declarationVisitor::visitReference);
 
+        // Do not report inherited constructors as we already report extending internal types
+        if (!method.isInit() && !method.isClinit()) {
+            ReferenceVisitor inheritanceVisitor = visitorFactory.forMethodInheritance(method);
+            visitImmediateInternalSupertypes(method.getDeclaringClass(), superType -> {
+                IMethod implementedMethod = superType.getMethod(method.getSelector());
+                if (implementedMethod != null) {
+                    inheritanceVisitor.visitMethodReference(superType.getName().toString(), implementedMethod.getName().toString(), implementedMethod.getSignature());
+                }
+            });
+        }
+
         ReferenceVisitor bodyVisitor = visitorFactory.forMethodBody(method);
         Arrays.stream(WalaUtil.instructions(method))
             .forEach(instruction -> visitReferencedTypes(instruction, bodyVisitor));
@@ -126,7 +138,7 @@ public class TypeReferenceWalker {
         }
     }
 
-    private static void visitHierarchy(IClass baseType, ReferenceVisitor visitor) {
+    private static void visitImmediateInternalSupertypes(IClass baseType, Consumer<IClass> processor) {
         WalaUtil.visitTypeHierarchy(baseType, superType -> {
             switch (TypeOrigin.of(superType)) {
                 case PUBLIC -> {
@@ -135,7 +147,7 @@ public class TypeReferenceWalker {
                 }
                 case INTERNAL -> {
                     // Report referenced internal type
-                    visitor.visitReference(superType);
+                    processor.accept(superType);
                     return false;
                 }
                 default -> {
@@ -307,6 +319,8 @@ public class TypeReferenceWalker {
 
         ReferenceVisitor forMethodDeclaration(IMethod originMethod);
 
+        ReferenceVisitor forMethodInheritance(IMethod originMethod);
+
         ReferenceVisitor forMethodBody(IMethod originMethod);
 
         ReferenceVisitor forMethodAnnotations(IMethod method);
@@ -335,6 +349,11 @@ public class TypeReferenceWalker {
 
                 @Override
                 public ReferenceVisitor forMethodDeclaration(IMethod originMethod) {
+                    return visitor;
+                }
+
+                @Override
+                public ReferenceVisitor forMethodInheritance(IMethod originMethod) {
                     return visitor;
                 }
 
