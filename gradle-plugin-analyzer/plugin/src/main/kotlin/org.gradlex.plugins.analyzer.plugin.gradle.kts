@@ -177,7 +177,13 @@ abstract class FormatReportTask : DefaultTask() {
                     writer.println("### ${messageGroup.title}")
                     writer.println()
                     messageGroup.messages.forEach { message ->
-                        writer.println("- ${message.level}: ${message.message}")
+                        val levelSymbol = when (message.level) {
+                            "INFO" -> "\uD83D\uDCAC"
+                            "WARN" -> "⚠\uFE0F"
+                            "ERROR" -> "❌"
+                            else -> "❓"
+                        }
+                        writer.println("- ${levelSymbol} ${message.message}")
                     }
                     writer.println()
                 }

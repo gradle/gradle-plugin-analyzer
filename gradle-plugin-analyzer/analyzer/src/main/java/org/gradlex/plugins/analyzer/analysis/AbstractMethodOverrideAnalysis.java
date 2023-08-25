@@ -64,18 +64,18 @@ public abstract class AbstractMethodOverrideAnalysis implements Analysis {
                     invokeCallSiteArray.getInvocationCode() == Dispatch.STATIC
                     && invokeCallSiteArray.getMethodName().equals("$getCallSiteArray"))
                 .ifPresentOrElse(
-                    invokeInstruction -> context.report(Level.WARN, String.format("The dynamic Groovy %s %s() in %s overrides Gradle API from %s",
-                        methodType, method.getName(), type.getName(), overriddenMethod.getDeclaringClass().getName())),
+                    invokeInstruction -> context.report(Level.WARN, String.format("The dynamic Groovy %s %s overrides Gradle API from %s",
+                        methodType, method.getSignature(), overriddenMethod.getDeclaringClass().getName())),
                     () -> {
                         checkJavaInstructions(method, queue);
-                        context.report(Level.INFO, String.format("The %s %s() in %s overrides Gradle API from %s, but calls only super()",
-                            methodType, method.getName(), type.getName(), overriddenMethod.getDeclaringClass().getName()));
+                        context.report(Level.INFO, String.format("The %s %s overrides Gradle API from %s, but calls only super()",
+                            methodType, method.getSignature(), overriddenMethod.getDeclaringClass().getName()));
                     }
                 );
         } catch (AnalysisException ex) {
             // TODO Report the custom code in some form
-            context.report(Level.WARN, String.format("The %s %s() in %s overrides Gradle API from %s with custom logic",
-                methodType, method.getName(), type.getName(), overriddenMethod.getDeclaringClass().getName()));
+            context.report(Level.WARN, String.format("The %s %s overrides Gradle API from %s with custom logic",
+                methodType, method.getSignature(),overriddenMethod.getDeclaringClass().getName()));
         }
     }
 
