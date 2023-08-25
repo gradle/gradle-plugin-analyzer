@@ -50,7 +50,7 @@ class DefaultAnalyzerTest extends AbstractAnalysisSpec {
     @Override
     protected Analyzer getAnalyzer() {
         def pluginFiles = explode(System.getProperty("plugin-files"), FileSystems.default).toList()
-        new DefaultAnalyzer(files + pluginFiles)
+        new DefaultAnalyzer(new TypeRepository(files + pluginFiles))
     }
 
     @Override

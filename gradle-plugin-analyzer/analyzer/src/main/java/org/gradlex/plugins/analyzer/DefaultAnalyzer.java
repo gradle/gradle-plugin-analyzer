@@ -6,14 +6,12 @@ import org.gradlex.plugins.analyzer.TypeRepository.TypeSet;
 import org.slf4j.event.Level;
 
 import java.io.IOException;
-import java.nio.file.Path;
-import java.util.Collection;
 
 public class DefaultAnalyzer implements Analyzer {
     private final TypeRepository typeRepository;
 
-    public DefaultAnalyzer(Collection<Path> classpath) throws ClassHierarchyException, IOException {
-        this.typeRepository = new TypeRepository(classpath);
+    public DefaultAnalyzer(TypeRepository typeRepository) throws ClassHierarchyException, IOException {
+        this.typeRepository = typeRepository;
     }
 
     @Override

@@ -5,6 +5,7 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.ibm.wala.classLoader.IClass;
+import com.ibm.wala.core.util.strings.Atom;
 import com.ibm.wala.types.TypeName;
 import com.ibm.wala.types.TypeReference;
 
@@ -19,60 +20,64 @@ public enum TypeOrigin {
     RUNTIME(false),
     EXTERNAL(false);
 
-    private static final List<Pattern> PUBLIC_PACKAGES = Stream.of(
-            "org/gradle/*",
-            "org/gradle/api/**",
-            "org/gradle/authentication/**",
-            "org/gradle/build/**",
-            "org/gradle/buildinit/**",
-            "org/gradle/caching/**",
-            "org/gradle/concurrent/**",
-            "org/gradle/deployment/**",
-            "org/gradle/env/**",
-            "org/gradle/external/javadoc/**",
-            "org/gradle/ide/**",
-            "org/gradle/includedbuild/**",
-            "org/gradle/ivy/**",
-            "org/gradle/jvm/**",
-            "org/gradle/language/**",
-            "org/gradle/maven/**",
-            "org/gradle/nativeplatform/**",
-            "org/gradle/normalization/**",
-            "org/gradle/platform/**",
-            "org/gradle/play/**",
-            "org/gradle/plugin/devel/**",
-            "org/gradle/plugin/repository/*",
-            "org/gradle/plugin/use/*",
-            "org/gradle/plugin/management/*",
-            "org/gradle/plugins/**",
-            "org/gradle/process/**",
-            "org/gradle/testfixtures/**",
-            "org/gradle/testing/jacoco/**",
-            "org/gradle/tooling/**",
-            "org/gradle/swiftpm/**",
-            "org/gradle/model/**",
-            "org/gradle/testkit/**",
-            "org/gradle/testing/**",
-            "org/gradle/vcs/**",
-            "org/gradle/work/**",
-            "org/gradle/workers/**",
-            "org/gradle/util/**"
-        ).map(TypeOrigin::toPackagePattern)
-        .collect(ImmutableList.toImmutableList());
+    private static final PackageMatcher PUBLIC_MATCHER = new CompositePackageMatcher(
+        exact("org/gradle"),
+        prefix("org/gradle/api"),
+        prefix("org/gradle/authentication"),
+        prefix("org/gradle/build"),
+        prefix("org/gradle/buildinit"),
+        prefix("org/gradle/caching"),
+        prefix("org/gradle/concurrent"),
+        prefix("org/gradle/deployment"),
+        prefix("org/gradle/env"),
+        prefix("org/gradle/external/javadoc"),
+        prefix("org/gradle/ide"),
+        prefix("org/gradle/includedbuild"),
+        prefix("org/gradle/ivy"),
+        prefix("org/gradle/jvm"),
+        prefix("org/gradle/language"),
+        prefix("org/gradle/maven"),
+        prefix("org/gradle/nativeplatform"),
+        prefix("org/gradle/normalization"),
+        prefix("org/gradle/platform"),
+        prefix("org/gradle/play"),
+        prefix("org/gradle/plugin/devel"),
+        exact("org/gradle/plugin/repository"),
+        exact("org/gradle/plugin/use"),
+        exact("org/gradle/plugin/management"),
+        prefix("org/gradle/plugins"),
+        prefix("org/gradle/process"),
+        prefix("org/gradle/testfixtures"),
+        prefix("org/gradle/testing/jacoco"),
+        prefix("org/gradle/tooling"),
+        prefix("org/gradle/swiftpm"),
+        prefix("org/gradle/model"),
+        prefix("org/gradle/testkit"),
+        prefix("org/gradle/testing"),
+        prefix("org/gradle/vcs"),
+        prefix("org/gradle/work"),
+        prefix("org/gradle/workers"),
+        prefix("org/gradle/util")
+    );
 
-    private static final List<Pattern> INTERNAL_PACKAGES = Stream.of(
-            "**/internal/**",
-            "net/rubygrapefruit/**"
-        ).map(TypeOrigin::toPackagePattern)
-        .collect(ImmutableList.toImmutableList());
     private final boolean gradleApi;
 
-    private static Pattern toPackagePattern(String packageGlob) {
-        return Pattern.compile("L" + packageGlob
-            .replaceAll("\\*\\*", "###")
-            .replaceAll("/\\*", "/[A-Z][a-z_A-Z0-9]+")
-            .replaceAll("###", ".*?")
-        );
+    private static final List<Atom> GRADLE_ROOTS = atoms(
+        "org/gradle",
+        "net/rubygrapefruit"
+    );
+    private static final List<Atom> RUNTIME_ROOTS = atoms(
+        "java", "javax", "jdk",
+        "groovy", "org/codehaus/groovy",
+        "kotlin",
+        // This is to avoid detecting references in org.slf4j.impl.StaticLoggerBinder as internal API
+        "org/slf4j"
+    );
+
+    private static List<Atom> atoms(String... names) {
+        return Stream.of(names)
+            .map(Atom::findOrCreateAsciiAtom)
+            .collect(ImmutableList.toImmutableList());
     }
 
     private static final LoadingCache<TypeName, TypeOrigin> CACHE = CacheBuilder.newBuilder()
@@ -80,22 +85,18 @@ public enum TypeOrigin {
             @Nonnull
             @Override
             public TypeOrigin load(TypeName type) {
-                String className = type.toString();
-                if (className.startsWith("Lorg/gradle/")
-                    || className.startsWith("Lnet/rubygrapefruit/")
-                ) {
-                    if (INTERNAL_PACKAGES.stream().noneMatch(pattern -> matches(pattern, className))
-                        && PUBLIC_PACKAGES.stream().anyMatch(pattern -> matches(pattern, className))) {
-                        return PUBLIC;
-                    } else {
-                        return INTERNAL;
-                    }
+                if (type.isArrayType()) {
+                    type = type.getInnermostElementType();
                 }
-                if (className.startsWith("Ljava/") || className.startsWith("Ljavax/") || className.startsWith("Ljdk/")
-                    || className.startsWith("Lgroovy/") || className.startsWith("Lorg/codehaus/groovy/")
-                    || className.startsWith("Lkotlin/")
-                    || className.startsWith("Lorg/slf4j/")
-                ) {
+                if (type.isPrimitiveType()) {
+                    return RUNTIME;
+                }
+                Atom pkg = type.getPackage();
+                if (pkg == null) {
+                    return EXTERNAL;
+                } else if (GRADLE_ROOTS.stream().anyMatch(pkg::startsWith)) {
+                    return PUBLIC_MATCHER.match(pkg) ? PUBLIC : INTERNAL;
+                } else if (RUNTIME_ROOTS.stream().anyMatch(pkg::startsWith)) {
                     return RUNTIME;
                 } else {
                     return EXTERNAL;
@@ -137,5 +138,61 @@ public enum TypeOrigin {
 
     public static boolean isExternal(IClass clazz) {
         return of(clazz) == EXTERNAL;
+    }
+
+    private interface PackageMatcher {
+        boolean match(Atom pkg);
+    }
+
+    private static PackageMatcher exact(String name) {
+        return new ExactPackageMatcher(name);
+    }
+
+    private static PackageMatcher prefix(String name) {
+        return new PrefixPackageMatcher(name);
+    }
+
+    private static class ExactPackageMatcher implements PackageMatcher {
+        private final Atom name;
+
+        public ExactPackageMatcher(String name) {
+            this.name = Atom.findOrCreateAsciiAtom(name);
+        }
+
+        @Override
+        public boolean match(Atom pkg) {
+            return pkg == name;
+        }
+    }
+
+    private static class PrefixPackageMatcher extends ExactPackageMatcher {
+        private final Atom prefix;
+
+        public PrefixPackageMatcher(String name) {
+            super(name);
+            this.prefix = Atom.findOrCreateAsciiAtom(name + "/");
+        }
+
+        @Override
+        public boolean match(Atom pkg) {
+            return super.match(pkg) || (pkg.startsWith(prefix) && !internal(pkg.toString()));
+        }
+
+        private boolean internal(String pkg) {
+            return pkg.endsWith("/internal") || pkg.contains("/internal/");
+        }
+    }
+
+    private static class CompositePackageMatcher implements PackageMatcher {
+        private final List<PackageMatcher> matchers;
+
+        public CompositePackageMatcher(PackageMatcher... matchers) {
+            this.matchers = ImmutableList.copyOf(matchers);
+        }
+
+        @Override
+        public boolean match(Atom pkg) {
+            return matchers.stream().anyMatch(matcher -> matcher.match(pkg));
+        }
     }
 }
