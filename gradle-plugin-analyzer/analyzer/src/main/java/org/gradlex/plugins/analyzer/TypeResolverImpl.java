@@ -1,7 +1,9 @@
 package org.gradlex.plugins.analyzer;
 
 import com.ibm.wala.classLoader.IClass;
+import com.ibm.wala.classLoader.IMethod;
 import com.ibm.wala.ipa.cha.ClassHierarchy;
+import com.ibm.wala.types.Selector;
 import com.ibm.wala.types.TypeName;
 import com.ibm.wala.types.TypeReference;
 
@@ -57,5 +59,14 @@ public record TypeResolverImpl(ClassHierarchy hierarchy) implements TypeResolver
         }
 
         return hierarchy.lookupClass(reference);
+    }
+
+    @Override
+    public IMethod resolveMethod(String typeName, String methodSignature) {
+        IClass clazz = findClass(typeName);
+        if (clazz == null) {
+            return null;
+        }
+        return hierarchy.resolveMethod(clazz, Selector.make(methodSignature));
     }
 }

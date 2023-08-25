@@ -45,13 +45,12 @@ import com.ibm.wala.types.annotations.Annotation;
 import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 public class TypeReferenceWalker {
 
     public static void walkReferences(IClass type, ReferenceVisitorFactory visitorFactory) {
-        visitImmediateInternalSupertypes(type, visitorFactory.forTypeHierarchy(type)::visitReference);
+        WalaUtil.visitImmediateInternalSupertypes(type, visitorFactory.forTypeHierarchy(type)::visitReference);
 
         visitAnnotations(type.getAnnotations(), visitorFactory.forTypeAnnotations(type));
 
@@ -117,10 +116,10 @@ public class TypeReferenceWalker {
         // Do not report inherited constructors as we already report extending internal types
         if (!method.isInit() && !method.isClinit()) {
             ReferenceVisitor inheritanceVisitor = visitorFactory.forMethodInheritance(method);
-            visitImmediateInternalSupertypes(method.getDeclaringClass(), superType -> {
+            WalaUtil.visitImmediateInternalSupertypes(method.getDeclaringClass(), superType -> {
                 IMethod implementedMethod = superType.getMethod(method.getSelector());
                 if (implementedMethod != null) {
-                    inheritanceVisitor.visitMethodReference(superType.getName().toString(), implementedMethod.getName().toString(), implementedMethod.getSignature());
+                    inheritanceVisitor.visitMethodReference(implementedMethod);
                 }
             });
         }
@@ -136,26 +135,6 @@ public class TypeReferenceWalker {
         } catch (InvalidClassFileException e) {
             throw new RuntimeException(e);
         }
-    }
-
-    private static void visitImmediateInternalSupertypes(IClass baseType, Consumer<IClass> processor) {
-        WalaUtil.visitTypeHierarchy(baseType, superType -> {
-            switch (TypeOrigin.of(superType)) {
-                case PUBLIC -> {
-                    // Ignore referenced public types and their supertypes
-                    return false;
-                }
-                case INTERNAL -> {
-                    // Report referenced internal type
-                    processor.accept(superType);
-                    return false;
-                }
-                default -> {
-                    // Visit external supertype
-                    return true;
-                }
-            }
-        });
     }
 
     private static void visitReferencedTypes(IInstruction instruction, ReferenceVisitor visitor) {
@@ -263,7 +242,7 @@ public class TypeReferenceWalker {
 
             @Override
             public void visitInvoke(IInvokeInstruction instruction) {
-                visitor.visitMethodReference(instruction.getClassType(), instruction.getMethodName(), instruction.getMethodSignature());
+                visitor.visitMethodReference(instruction.getClassType(), instruction.getMethodName() + instruction.getMethodSignature());
             }
 
             @Override
@@ -384,7 +363,14 @@ public class TypeReferenceWalker {
             }
         }
 
-        public abstract void visitMethodReference(String typeName, String methodName, String methodSignature);
+        public abstract void visitMethodReference(IMethod method);
+
+        public void visitMethodReference(String typeName, String methodSignature) {
+            IMethod method = typeResolver.resolveMethod(typeName, methodSignature);
+            if (method != null) {
+                visitMethodReference(method);
+            }
+        }
 
         public abstract void visitReference(TypeReference reference);
 

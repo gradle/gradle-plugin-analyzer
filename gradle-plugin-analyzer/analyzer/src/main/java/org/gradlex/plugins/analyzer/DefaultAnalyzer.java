@@ -6,12 +6,16 @@ import org.gradlex.plugins.analyzer.TypeRepository.TypeSet;
 import org.slf4j.event.Level;
 
 import java.io.IOException;
+import java.util.function.Function;
+import java.util.stream.Stream;
 
 public class DefaultAnalyzer implements Analyzer {
     private final TypeRepository typeRepository;
+    private final Function<Object, String> formatter;
 
-    public DefaultAnalyzer(TypeRepository typeRepository) throws ClassHierarchyException, IOException {
+    public DefaultAnalyzer(TypeRepository typeRepository, Function<Object, String> formatter) throws ClassHierarchyException, IOException {
         this.typeRepository = typeRepository;
+        this.formatter = formatter;
     }
 
     @Override
@@ -25,8 +29,8 @@ public class DefaultAnalyzer implements Analyzer {
                 }
 
                 @Override
-                public void report(Level level, String message) {
-                    reporter.report(level, message);
+                public void report(Level level, String message, Object... args) {
+                    reporter.report(level, message, Stream.of(args).map(formatter).toArray(Object[]::new));
                 }
             });
         });

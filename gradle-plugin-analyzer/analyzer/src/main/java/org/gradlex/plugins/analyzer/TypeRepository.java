@@ -10,7 +10,6 @@ import com.ibm.wala.ipa.cha.ClassHierarchy;
 import com.ibm.wala.ipa.cha.ClassHierarchyException;
 import com.ibm.wala.ipa.cha.ClassHierarchyFactory;
 import com.ibm.wala.types.ClassLoaderReference;
-import com.ibm.wala.types.Selector;
 import com.ibm.wala.types.TypeReference;
 import com.ibm.wala.util.config.FileOfClasses;
 import org.gradlex.plugins.analyzer.TypeReferenceWalker.ReferenceVisitor;
@@ -152,16 +151,13 @@ public class TypeRepository {
                     }
 
                     @Override
-                    public void visitMethodReference(String typeName, String methodName, String methodSignature) {
-                        IClass type = typeResolver.findClass(typeName);
-                        if (type != null && TypeOrigin.of(type) == EXTERNAL) {
-                            IMethod method = cache.hierarchy.resolveMethod(type, Selector.make(methodName + methodSignature));
-                            if (method != null) {
-                                visitReference(type);
-                                visitReference(method.getReturnType());
-                                for (int iParam = 0; iParam < method.getNumberOfParameters(); iParam++) {
-                                    visitReference(method.getParameterType(iParam));
-                                }
+                    public void visitMethodReference(IMethod method) {
+                        IClass type = method.getDeclaringClass();
+                        if (TypeOrigin.of(type) == EXTERNAL) {
+                            visitReference(type);
+                            visitReference(method.getReturnType());
+                            for (int iParam = 0; iParam < method.getNumberOfParameters(); iParam++) {
+                                visitReference(method.getParameterType(iParam));
                             }
                         }
                     }

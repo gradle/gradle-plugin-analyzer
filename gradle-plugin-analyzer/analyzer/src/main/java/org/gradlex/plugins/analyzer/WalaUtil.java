@@ -6,11 +6,13 @@ import com.ibm.wala.classLoader.ShrikeCTMethod;
 import com.ibm.wala.core.util.strings.Atom;
 import com.ibm.wala.shrike.shrikeBT.IInstruction;
 import com.ibm.wala.shrike.shrikeCT.InvalidClassFileException;
+import com.ibm.wala.types.TypeName;
 import com.ibm.wala.types.TypeReference;
 
 import java.util.ArrayDeque;
 import java.util.HashSet;
 import java.util.Objects;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -74,4 +76,77 @@ public class WalaUtil {
             type.getDirectInterfaces().stream());
     }
 
+    public static void visitImmediateInternalSupertypes(IClass baseType, Consumer<IClass> processor) {
+        visitTypeHierarchy(baseType, superType -> {
+            switch (TypeOrigin.of(superType)) {
+                case PUBLIC -> {
+                    // Ignore referenced public types and their supertypes
+                    return false;
+                }
+                case INTERNAL -> {
+                    // Report referenced internal type
+                    processor.accept(superType);
+                    return false;
+                }
+                default -> {
+                    // Visit external supertype
+                    return true;
+                }
+            }
+        });
+    }
+
+    public static String toFQCN(String internalType) {
+        switch (internalType) {
+            case "B" -> {
+                return "byte";
+            }
+            case "C" -> {
+                return "char";
+            }
+            case "D" -> {
+                return "double";
+            }
+            case "F" -> {
+                return "float";
+            }
+            case "I" -> {
+                return "int";
+            }
+            case "J" -> {
+                return "long";
+            }
+            case "S" -> {
+                return "short";
+            }
+            case "Z" -> {
+                return "boolean";
+            }
+            case "V" -> {
+                return "void";
+            }
+        }
+
+        if (!internalType.startsWith("L")) {
+            throw new IllegalArgumentException("Invalid internal type notation: " + internalType);
+        }
+        var loseRight = internalType.endsWith(";") ? 1 : 0;
+        return internalType.substring(1, internalType.length() - loseRight).replace('/', '.');
+    }
+
+    public static String toFQCN(TypeName name) {
+        if (name.isArrayType()) {
+            return toFQCN(name.parseForArrayElementName()) + "[]";
+        } else {
+            return toFQCN(name.toString());
+        }
+    }
+
+    public static String toFQCN(TypeReference reference) {
+        return toFQCN(reference.getName());
+    }
+
+    public static String toFQCN(IClass type) {
+        return toFQCN(type.getName());
+    }
 }

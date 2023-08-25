@@ -27,8 +27,8 @@ class AbstractMethodOverrideAnalysisTest extends AbstractAnalysisSpec {
 
         then:
         reports == [
-            "INFO: The method CustomTask.getEnabled()Z overrides Gradle API from Lorg/gradle/api/DefaultTask, but calls only super()",
-            "INFO: The method CustomTask.getSource()Lorg/gradle/api/file/FileTree; overrides Gradle API from Lorg/gradle/api/tasks/SourceTask, but calls only super()",
+            "INFO: The method method CustomTask.getEnabled()Z overrides Gradle API from type Lorg/gradle/api/DefaultTask, but calls only super()",
+            "INFO: The method method CustomTask.getSource()Lorg/gradle/api/file/FileTree; overrides Gradle API from type Lorg/gradle/api/tasks/SourceTask, but calls only super()",
         ]
     }
 
@@ -48,7 +48,7 @@ class AbstractMethodOverrideAnalysisTest extends AbstractAnalysisSpec {
 
         then:
         reports == [
-            "WARN: The method CustomTask.setEnabled(Z)V overrides Gradle API from Lorg/gradle/api/DefaultTask with custom logic"
+            "WARN: The method method CustomTask.setEnabled(Z)V overrides Gradle API from type Lorg/gradle/api/DefaultTask with custom logic",
         ]
     }
 
@@ -73,8 +73,8 @@ class AbstractMethodOverrideAnalysisTest extends AbstractAnalysisSpec {
 
         then:
         reports == [
-            "INFO: The method CustomTask.getEnabled()Z overrides Gradle API from Lorg/gradle/api/DefaultTask, but calls only super()",
-            "INFO: The method CustomTask.getSource()Lorg/gradle/api/file/FileTree; overrides Gradle API from Lorg/gradle/api/tasks/SourceTask, but calls only super()",
+            "INFO: The method method CustomTask.getEnabled()Z overrides Gradle API from type Lorg/gradle/api/DefaultTask, but calls only super()",
+            "INFO: The method method CustomTask.getSource()Lorg/gradle/api/file/FileTree; overrides Gradle API from type Lorg/gradle/api/tasks/SourceTask, but calls only super()",
         ]
     }
 
@@ -95,7 +95,7 @@ class AbstractMethodOverrideAnalysisTest extends AbstractAnalysisSpec {
 
         then:
         reports == [
-            "WARN: The method CustomTask.setEnabled(Z)V overrides Gradle API from Lorg/gradle/api/DefaultTask with custom logic"
+            "WARN: The method method CustomTask.setEnabled(Z)V overrides Gradle API from type Lorg/gradle/api/DefaultTask with custom logic",
         ]
     }
 
@@ -124,9 +124,9 @@ class AbstractMethodOverrideAnalysisTest extends AbstractAnalysisSpec {
 
         then:
         reports == [
-            "WARN: The dynamic Groovy method CustomTask.getEnabled()Z overrides Gradle API from Lorg/gradle/api/DefaultTask",
-            "WARN: The dynamic Groovy method CustomTask.getSource()Lorg/gradle/api/file/FileTree; overrides Gradle API from Lorg/gradle/api/tasks/SourceTask",
-            "WARN: The dynamic Groovy method CustomTask.setEnabled(Z)V overrides Gradle API from Lorg/gradle/api/DefaultTask",
+            "WARN: The dynamic Groovy method method CustomTask.getEnabled()Z overrides Gradle API from type Lorg/gradle/api/DefaultTask",
+            "WARN: The dynamic Groovy method method CustomTask.getSource()Lorg/gradle/api/file/FileTree; overrides Gradle API from type Lorg/gradle/api/tasks/SourceTask",
+            "WARN: The dynamic Groovy method method CustomTask.setEnabled(Z)V overrides Gradle API from type Lorg/gradle/api/DefaultTask",
         ]
     }
 
@@ -144,8 +144,8 @@ class AbstractMethodOverrideAnalysisTest extends AbstractAnalysisSpec {
 
         then:
         reports == [
-            "INFO: The method CustomTask.getEnabled()Z overrides Gradle API from Lorg/gradle/api/DefaultTask, but calls only super()",
-            "INFO: The method CustomTask.getSource()Lorg/gradle/api/file/FileTree; overrides Gradle API from Lorg/gradle/api/tasks/SourceTask, but calls only super()",
+            "INFO: The method method CustomTask.getEnabled()Z overrides Gradle API from type Lorg/gradle/api/DefaultTask, but calls only super()",
+            "INFO: The method method CustomTask.getSource()Lorg/gradle/api/file/FileTree; overrides Gradle API from type Lorg/gradle/api/tasks/SourceTask, but calls only super()",
         ]
     }
 
@@ -164,7 +164,7 @@ class AbstractMethodOverrideAnalysisTest extends AbstractAnalysisSpec {
 
         then:
         reports == [
-            "WARN: The method CustomTask.setEnabled(Z)V overrides Gradle API from Lorg/gradle/api/DefaultTask with custom logic",
+            "WARN: The method method CustomTask.setEnabled(Z)V overrides Gradle API from type Lorg/gradle/api/DefaultTask with custom logic",
         ]
     }
 
@@ -182,7 +182,7 @@ class AbstractMethodOverrideAnalysisTest extends AbstractAnalysisSpec {
 
         then:
         reports == [
-            "WARN: The method CustomTask.getSource()Lorg/gradle/api/file/FileTree; overrides Gradle API from Lorg/gradle/api/tasks/SourceTask with custom logic",
+            "WARN: The method method CustomTask.getSource()Lorg/gradle/api/file/FileTree; overrides Gradle API from type Lorg/gradle/api/tasks/SourceTask with custom logic",
         ]
     }
 }

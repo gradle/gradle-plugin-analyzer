@@ -50,11 +50,11 @@ public abstract class AbstractMethodOverrideAnalysis implements Analysis {
                 // Find the same method in the superclass
                 .flatMap(clazz -> Stream.ofNullable(clazz.getMethod(method.getSelector())))
                 .findFirst()
-                .ifPresent(overriddenMethod -> reportOverriddenMethod(context, type, method, overriddenMethod))
+                .ifPresent(overriddenMethod -> reportOverriddenMethod(context, method, overriddenMethod))
             );
     }
 
-    private void reportOverriddenMethod(AnalysisContext context, IClass type, IMethod method, IMethod overriddenMethod) {
+    private void reportOverriddenMethod(AnalysisContext context, IMethod method, IMethod overriddenMethod) {
         try {
             InstructionQueue queue = new InstructionQueue(WalaUtil.instructions(method));
 
@@ -64,18 +64,18 @@ public abstract class AbstractMethodOverrideAnalysis implements Analysis {
                     invokeCallSiteArray.getInvocationCode() == Dispatch.STATIC
                     && invokeCallSiteArray.getMethodName().equals("$getCallSiteArray"))
                 .ifPresentOrElse(
-                    invokeInstruction -> context.report(Level.WARN, String.format("The dynamic Groovy %s %s overrides Gradle API from %s",
-                        methodType, method.getSignature(), overriddenMethod.getDeclaringClass().getName())),
+                    invokeInstruction -> context.report(Level.WARN, "The dynamic Groovy %s %s overrides Gradle API from %s",
+                        methodType, method, overriddenMethod.getDeclaringClass()),
                     () -> {
                         checkJavaInstructions(method, queue);
-                        context.report(Level.INFO, String.format("The %s %s overrides Gradle API from %s, but calls only super()",
-                            methodType, method.getSignature(), overriddenMethod.getDeclaringClass().getName()));
+                        context.report(Level.INFO, "The %s %s overrides Gradle API from %s, but calls only super()",
+                            methodType, method, overriddenMethod.getDeclaringClass());
                     }
                 );
         } catch (AnalysisException ex) {
             // TODO Report the custom code in some form
-            context.report(Level.WARN, String.format("The %s %s overrides Gradle API from %s with custom logic",
-                methodType, method.getSignature(),overriddenMethod.getDeclaringClass().getName()));
+            context.report(Level.WARN, "The %s %s overrides Gradle API from %s with custom logic",
+                methodType, method, overriddenMethod.getDeclaringClass());
         }
     }
 

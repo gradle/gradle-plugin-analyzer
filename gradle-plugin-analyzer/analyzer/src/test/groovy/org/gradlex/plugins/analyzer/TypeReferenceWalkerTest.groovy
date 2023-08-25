@@ -1,5 +1,6 @@
 package org.gradlex.plugins.analyzer
 
+import com.ibm.wala.classLoader.IMethod
 import com.ibm.wala.types.TypeReference
 import org.gradlex.plugins.analyzer.analysis.AbstractAnalysisSpec
 
@@ -31,12 +32,12 @@ class TypeReferenceWalkerTest extends AbstractAnalysisSpec {
         def visitor = new TypeReferenceWalker.ReferenceVisitor(repository.typeResolver) {
             @Override
             void visitReference(TypeReference reference) {
-                types += reference.getName().toString()
+                types += reference.name.toString()
             }
 
             @Override
-            void visitMethodReference(String typeName, String methodName, String methodSignature) {
-                methods += "${typeName}.${methodName}${methodSignature}"
+            void visitMethodReference(IMethod method) {
+                methods += method.signature
             }
         }
 
