@@ -19,8 +19,8 @@ class TypeOriginTest extends Specification {
         originOf("Lorg/gradle/caching/internal/DefaultBuildCacheKey") == INTERNAL
         originOf("Lorg/gradle/cache/Cache") == INTERNAL
         originOf("Lnet/rubygrapefruit/platform/file/FileWatcher") == INTERNAL
-        originOf("Lcom/google/common/collect/ImmutableList") == EXTERNAL
-        originOf("LTypeInDefaultPackage") == EXTERNAL
+        originOf("Lcom/example/CustomTask") == EXTERNAL
+        originOf("LCustomTask") == EXTERNAL
     }
 
     private static TypeOrigin originOf(String type) {

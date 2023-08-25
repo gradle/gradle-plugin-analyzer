@@ -9,6 +9,7 @@ import org.gradlex.plugins.analyzer.Analysis
 import org.gradlex.plugins.analyzer.Analyzer
 import org.gradlex.plugins.analyzer.DefaultAnalyzer
 import org.gradlex.plugins.analyzer.Reporter
+import org.gradlex.plugins.analyzer.TypeRepository
 import org.gradlex.plugins.analyzer.TypeRepository.TypeSet
 import org.gradlex.plugins.analyzer.TypeRepository.TypeSet.ALL_EXTERNAL_REFERENCED_TYPES
 import org.gradlex.plugins.analyzer.TypeRepository.TypeSet.EXTERNAL_TASK_TYPES
@@ -99,7 +100,7 @@ abstract class PluginAnalyzerTask : DefaultTask() {
             val files = parameters.runtime.files.map(File::toPath) +
                 parameters.classpath.files.map(File::toPath)
             val messageGroups = mutableListOf<MessageGroup>()
-            val analyzer = DefaultAnalyzer(files)
+            val analyzer = DefaultAnalyzer(TypeRepository(files))
 
             fun Analyzer.analyze(title: String, set: TypeSet, analysis: Analysis) {
                 val builder = ImmutableList.builder<Message>()

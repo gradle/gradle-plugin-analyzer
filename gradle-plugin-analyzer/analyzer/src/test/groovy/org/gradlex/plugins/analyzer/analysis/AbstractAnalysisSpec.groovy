@@ -6,6 +6,7 @@ import org.gradlex.plugins.analyzer.Analysis
 import org.gradlex.plugins.analyzer.Analyzer
 import org.gradlex.plugins.analyzer.DefaultAnalyzer
 import org.gradlex.plugins.analyzer.Reporter
+import org.gradlex.plugins.analyzer.TypeRepository
 import org.gradlex.plugins.analyzer.TypeRepository.TypeSet
 import org.jetbrains.kotlin.cli.common.ExitCode
 import org.jetbrains.kotlin.cli.common.arguments.K2JVMCompilerArguments
@@ -46,7 +47,7 @@ class AbstractAnalysisSpec extends Specification {
     }
 
     protected Analyzer getAnalyzer() {
-        analyzer = new DefaultAnalyzer(files)
+        analyzer = new DefaultAnalyzer(new TypeRepository(files))
     }
 
     protected Reporter getReporter() {

@@ -5,6 +5,7 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.ibm.wala.classLoader.IClass;
+import com.ibm.wala.core.util.strings.Atom;
 import com.ibm.wala.types.TypeName;
 import com.ibm.wala.types.TypeReference;
 
@@ -75,27 +76,45 @@ public enum TypeOrigin {
         );
     }
 
+    private static final List<Atom> GRADLE_ROOTS = atoms(
+        "org/gradle",
+        "net/rubygrapefruit"
+    );
+    private static final List<Atom> RUNTIME_ROOTS = atoms(
+        "java", "javax", "jdk",
+        "groovy", "org/codehaus/groovy",
+        "kotlin"
+    );
+
+    private static List<Atom> atoms(String... names) {
+        return Stream.of(names)
+            .map(Atom::findOrCreateAsciiAtom)
+            .collect(ImmutableList.toImmutableList());
+    }
+
     private static final LoadingCache<TypeName, TypeOrigin> CACHE = CacheBuilder.newBuilder()
         .build(new CacheLoader<>() {
             @Nonnull
             @Override
             public TypeOrigin load(TypeName type) {
-                String className = type.toString();
-                if (className.startsWith("Lorg/gradle/")
-                    || className.startsWith("Lnet/rubygrapefruit/")
-                ) {
+                if (type.isArrayType()) {
+                    type = type.getInnermostElementType();
+                }
+                if (type.isPrimitiveType()) {
+                    return RUNTIME;
+                }
+                Atom pkg = type.getPackage();
+                if (pkg == null) {
+                    return EXTERNAL;
+                } else if (GRADLE_ROOTS.stream().anyMatch(pkg::startsWith)) {
+                    String className = type.toString();
                     if (INTERNAL_PACKAGES.stream().noneMatch(pattern -> matches(pattern, className))
                         && PUBLIC_PACKAGES.stream().anyMatch(pattern -> matches(pattern, className))) {
                         return PUBLIC;
                     } else {
                         return INTERNAL;
                     }
-                }
-                if (className.startsWith("Ljava/") || className.startsWith("Ljavax/") || className.startsWith("Ljdk/")
-                    || className.startsWith("Lgroovy/") || className.startsWith("Lorg/codehaus/groovy/")
-                    || className.startsWith("Lkotlin/")
-                    || className.startsWith("Lorg/slf4j/")
-                ) {
+                } else if (RUNTIME_ROOTS.stream().anyMatch(pkg::startsWith)) {
                     return RUNTIME;
                 } else {
                     return EXTERNAL;
