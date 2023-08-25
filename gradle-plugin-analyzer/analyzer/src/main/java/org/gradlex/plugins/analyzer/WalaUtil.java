@@ -1,5 +1,6 @@
 package org.gradlex.plugins.analyzer;
 
+import com.ibm.wala.classLoader.IClass;
 import com.ibm.wala.classLoader.IMethod;
 import com.ibm.wala.classLoader.ShrikeCTMethod;
 import com.ibm.wala.core.util.strings.Atom;
@@ -61,4 +62,16 @@ public class WalaUtil {
                 .forEach(queue::add);
         }
     }
+
+    public static <T> void visitTypeHierarchy(IClass baseType, Predicate<IClass> processor) {
+        WalaUtil.visitHierarchy(baseType, type -> directSuperTypes(type)
+            .filter(processor));
+    }
+
+    private static Stream<IClass> directSuperTypes(IClass type) {
+        return Stream.concat(
+            Stream.ofNullable(type.getSuperclass()),
+            type.getDirectInterfaces().stream());
+    }
+
 }

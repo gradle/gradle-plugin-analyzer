@@ -30,7 +30,6 @@ class ShouldNotReferenceInternalApiTest extends AbstractAnalysisSpec {
 
         then:
         reports == [
-            "WARN: Method CustomTask.<init>()V references internal Gradle method Lorg/gradle/jvm/toolchain/internal/task/ShowToolchainsTask.<init>()V",
             "WARN: Type LCustomTask extends internal Gradle type Lorg/gradle/jvm/toolchain/internal/task/ShowToolchainsTask",
         ]
     }
@@ -63,6 +62,28 @@ class ShouldNotReferenceInternalApiTest extends AbstractAnalysisSpec {
             "WARN: Method CustomTask.<init>()V references internal Gradle method Lorg/gradle/api/internal/TaskOutputsInternal.getUpToDateSpec()Lorg/gradle/api/specs/AndSpec;",
             "WARN: Method CustomTask.execute()V references internal Gradle method Lorg/gradle/api/internal/TaskOutputsInternal.getUpToDateSpec()Lorg/gradle/api/specs/AndSpec;",
             "WARN: Method CustomTask.execute()V references internal Gradle type Lorg/gradle/api/internal/TaskOutputsInternal",
+        ]
+    }
+
+    def "does not signal calling public API"() {
+        compileJava("""
+            class CustomTask extends org.gradle.api.DefaultTask {
+                {
+                    // Public API accessed through accidentally leaked internal type:
+                    getOutputs().file("output.txt");
+
+                    // Truly internal API:
+                    getOutputs().getUpToDateSpec();
+                }
+            }
+        """)
+
+        when:
+        analyze(EXTERNAL_TASK_TYPES, new ShouldNotReferenceInternalApi())
+
+        then:
+        reports == [
+            "WARN: Method CustomTask.<init>()V references internal Gradle method Lorg/gradle/api/internal/TaskOutputsInternal.getUpToDateSpec()Lorg/gradle/api/specs/AndSpec;"
         ]
     }
 

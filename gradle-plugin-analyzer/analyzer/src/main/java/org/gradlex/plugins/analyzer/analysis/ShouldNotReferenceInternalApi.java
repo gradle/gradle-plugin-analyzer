@@ -7,12 +7,14 @@ import com.ibm.wala.types.TypeReference;
 import org.gradlex.plugins.analyzer.Analysis;
 import org.gradlex.plugins.analyzer.TypeOrigin;
 import org.gradlex.plugins.analyzer.TypeReferenceWalker;
-import org.gradlex.plugins.analyzer.TypeResolver;
 import org.gradlex.plugins.analyzer.TypeReferenceWalker.ReferenceVisitor;
 import org.gradlex.plugins.analyzer.TypeReferenceWalker.ReferenceVisitorFactory;
+import org.gradlex.plugins.analyzer.TypeResolver;
+import org.gradlex.plugins.analyzer.WalaUtil;
 
 import java.util.SortedSet;
 import java.util.TreeSet;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.slf4j.event.Level.WARN;
 
@@ -23,7 +25,7 @@ public class ShouldNotReferenceInternalApi implements Analysis {
     @Override
     public void analyzeType(IClass type, AnalysisContext context) {
         ReferenceCollector referenceCollector = new ReferenceCollector(context);
-        
+
         TypeReferenceWalker.walkReferences(type, referenceCollector);
 
         referenceCollector.references.forEach(reference -> context.report(WARN, reference));
@@ -115,18 +117,35 @@ public class ShouldNotReferenceInternalApi implements Analysis {
 
             @Override
             public void visitMethodReference(String typeName, String methodName, String methodSignature) {
-                TypeReference reference = context.getResolver().findReference(typeName);
-                if (reference != null && TypeOrigin.of(reference) == TypeOrigin.INTERNAL) {
-                    references.add(formatMethodReference(reference, methodName, methodSignature));
+                IClass type = context.getResolver().findClass(typeName);
+                if (type != null && TypeOrigin.of(type) == TypeOrigin.INTERNAL) {
+                    // Try to find method in a public supertype
+                    var hasPublicDefinition = new AtomicBoolean(false);
+                    WalaUtil.visitTypeHierarchy(type, superType -> {
+                        if (TypeOrigin.isPublicGradleApi(superType)) {
+                            if (superType.getDeclaredMethods().stream()
+                                .anyMatch(method -> method.getName().toString().equals(methodName)
+                                                    && method.getDescriptor().toString().equals(methodSignature))) {
+                                hasPublicDefinition.set(true);
+                                return false;
+                            }
+                        }
+                        return true;
+                    });
+                    if (!hasPublicDefinition.get()) {
+                        references.add(formatMethodReference(type.getReference(), methodName, methodSignature));
+                    }
                 }
             }
 
             private String formatTypeReference(TypeReference reference) {
                 return formatReference("internal Gradle type " + reference.getName());
             }
+
             private String formatMethodReference(TypeReference type, String methodName, String methodSignature) {
                 return formatReference("internal Gradle method " + type.getName() + "." + methodName + methodSignature);
             }
+
             protected abstract String formatReference(String reference);
         }
     }

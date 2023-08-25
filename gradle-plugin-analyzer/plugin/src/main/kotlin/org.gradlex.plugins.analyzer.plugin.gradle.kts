@@ -178,6 +178,7 @@ abstract class FormatReportTask : DefaultTask() {
                     messageGroup.messages.forEach { message ->
                         writer.println("- ${message.level}: ${message.message}")
                     }
+                    writer.println()
                 }
             } else {
                 writer.println("No messages generated. Good plugin!")

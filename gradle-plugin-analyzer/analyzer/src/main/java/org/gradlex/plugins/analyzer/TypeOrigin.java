@@ -131,8 +131,8 @@ public enum TypeOrigin {
         return of(clazz).isGradleApi();
     }
 
-    public static boolean isInternalGradleApi(IClass clazz) {
-        return of(clazz) == INTERNAL;
+    public static boolean isPublicGradleApi(IClass clazz) {
+        return of(clazz) == PUBLIC;
     }
 
     public static boolean isExternal(IClass clazz) {
