@@ -181,7 +181,7 @@ abstract class FormatReportTask : DefaultTask() {
                     writer.println()
                 }
             } else {
-                writer.println("No messages generated. Good plugin!")
+                writer.println("No messages generated. Good plugin! ❤\uFE0F")
             }
         }
     }
