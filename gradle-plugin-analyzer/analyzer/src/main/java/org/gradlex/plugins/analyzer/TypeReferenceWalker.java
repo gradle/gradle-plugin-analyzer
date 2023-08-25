@@ -50,7 +50,7 @@ import java.util.stream.Stream;
 public class TypeReferenceWalker {
 
     public static void walkReferences(IClass type, ReferenceVisitorFactory visitorFactory) {
-        visitHierarchy(type, visitorFactory.forTypeHierarchy(type));
+        WalaUtil.visitImmediateInternalSupertypes(type, visitorFactory.forTypeHierarchy(type)::visitReference);
 
         visitAnnotations(type.getAnnotations(), visitorFactory.forTypeAnnotations(type));
 
@@ -113,6 +113,17 @@ public class TypeReferenceWalker {
         }
         getDeclaredExceptions(method).forEach(declarationVisitor::visitReference);
 
+        // Do not report inherited constructors as we already report extending internal types
+        if (!method.isInit() && !method.isClinit()) {
+            ReferenceVisitor inheritanceVisitor = visitorFactory.forMethodInheritance(method);
+            WalaUtil.visitImmediateInternalSupertypes(method.getDeclaringClass(), superType -> {
+                IMethod implementedMethod = superType.getMethod(method.getSelector());
+                if (implementedMethod != null) {
+                    inheritanceVisitor.visitMethodReference(implementedMethod);
+                }
+            });
+        }
+
         ReferenceVisitor bodyVisitor = visitorFactory.forMethodBody(method);
         Arrays.stream(WalaUtil.instructions(method))
             .forEach(instruction -> visitReferencedTypes(instruction, bodyVisitor));
@@ -124,26 +135,6 @@ public class TypeReferenceWalker {
         } catch (InvalidClassFileException e) {
             throw new RuntimeException(e);
         }
-    }
-
-    private static void visitHierarchy(IClass baseType, ReferenceVisitor visitor) {
-        WalaUtil.visitTypeHierarchy(baseType, superType -> {
-            switch (TypeOrigin.of(superType)) {
-                case PUBLIC -> {
-                    // Ignore referenced public types and their supertypes
-                    return false;
-                }
-                case INTERNAL -> {
-                    // Report referenced internal type
-                    visitor.visitReference(superType);
-                    return false;
-                }
-                default -> {
-                    // Visit external supertype
-                    return true;
-                }
-            }
-        });
     }
 
     private static void visitReferencedTypes(IInstruction instruction, ReferenceVisitor visitor) {
@@ -251,7 +242,7 @@ public class TypeReferenceWalker {
 
             @Override
             public void visitInvoke(IInvokeInstruction instruction) {
-                visitor.visitMethodReference(instruction.getClassType(), instruction.getMethodName(), instruction.getMethodSignature());
+                visitor.visitMethodReference(instruction.getClassType(), instruction.getMethodName() + instruction.getMethodSignature());
             }
 
             @Override
@@ -307,6 +298,8 @@ public class TypeReferenceWalker {
 
         ReferenceVisitor forMethodDeclaration(IMethod originMethod);
 
+        ReferenceVisitor forMethodInheritance(IMethod originMethod);
+
         ReferenceVisitor forMethodBody(IMethod originMethod);
 
         ReferenceVisitor forMethodAnnotations(IMethod method);
@@ -339,6 +332,11 @@ public class TypeReferenceWalker {
                 }
 
                 @Override
+                public ReferenceVisitor forMethodInheritance(IMethod originMethod) {
+                    return visitor;
+                }
+
+                @Override
                 public ReferenceVisitor forMethodBody(IMethod originMethod) {
                     return visitor;
                 }
@@ -365,7 +363,14 @@ public class TypeReferenceWalker {
             }
         }
 
-        public abstract void visitMethodReference(String typeName, String methodName, String methodSignature);
+        public abstract void visitMethodReference(IMethod method);
+
+        public void visitMethodReference(String typeName, String methodSignature) {
+            IMethod method = typeResolver.resolveMethod(typeName, methodSignature);
+            if (method != null) {
+                visitMethodReference(method);
+            }
+        }
 
         public abstract void visitReference(TypeReference reference);
 

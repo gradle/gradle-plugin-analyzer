@@ -18,7 +18,7 @@ class TypeShouldNotOverrideGetterTest extends AbstractAnalysisSpec {
 
         then:
         reports == [
-            "INFO: The getter getSource() in LCustomTask overrides Gradle API from Lorg/gradle/api/tasks/SourceTask, but calls only super()"
+            "INFO: The getter method CustomTask.getSource()Lorg/gradle/api/file/FileTree; overrides Gradle API from type Lorg/gradle/api/tasks/SourceTask, but calls only super()"
         ]
     }
 }

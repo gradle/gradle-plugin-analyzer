@@ -1,6 +1,10 @@
 package org.gradlex.plugins.analyzer.analysis
 
 import com.google.common.collect.ImmutableList
+import com.ibm.wala.classLoader.IClass
+import com.ibm.wala.classLoader.IField
+import com.ibm.wala.classLoader.IMethod
+import com.ibm.wala.types.TypeReference
 import org.codehaus.groovy.control.CompilerConfiguration
 import org.gradlex.plugins.analyzer.Analysis
 import org.gradlex.plugins.analyzer.Analyzer
@@ -46,13 +50,34 @@ class AbstractAnalysisSpec extends Specification {
         messages = []
     }
 
+    protected TypeRepository getRepository() {
+        return new TypeRepository(files)
+    }
+
     protected Analyzer getAnalyzer() {
-        analyzer = new DefaultAnalyzer(new TypeRepository(files))
+        analyzer = new DefaultAnalyzer(getRepository(), { arg ->
+            switch (arg) {
+                case IClass:
+                    "type ${arg.name}"
+                    break
+                case TypeReference:
+                    "type ${arg.name}"
+                    break
+                case IField:
+                    "field ${arg.declaringClass.name}.${arg.name}"
+                    break
+                case IMethod:
+                    "method ${arg.signature}"
+                    break
+                default:
+                    arg as String
+            }
+        })
     }
 
     protected Reporter getReporter() {
-        { level, message ->
-            messages += "$level: $message" as String
+        { level, message, args ->
+            messages += "$level: ${message.formatted(args)}" as String
         }
     }
 

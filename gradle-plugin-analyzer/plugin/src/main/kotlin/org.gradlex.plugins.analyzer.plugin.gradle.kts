@@ -1,4 +1,9 @@
 import com.google.common.collect.ImmutableList
+import com.ibm.wala.classLoader.IClass
+import com.ibm.wala.classLoader.IField
+import com.ibm.wala.classLoader.IMethod
+import com.ibm.wala.types.TypeName
+import com.ibm.wala.types.TypeReference
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -9,6 +14,7 @@ import org.gradlex.plugins.analyzer.Analysis
 import org.gradlex.plugins.analyzer.Analyzer
 import org.gradlex.plugins.analyzer.DefaultAnalyzer
 import org.gradlex.plugins.analyzer.Reporter
+import org.gradlex.plugins.analyzer.WalaUtil.toFQCN
 import org.gradlex.plugins.analyzer.TypeRepository
 import org.gradlex.plugins.analyzer.TypeRepository.TypeSet
 import org.gradlex.plugins.analyzer.TypeRepository.TypeSet.ALL_EXTERNAL_REFERENCED_TYPES
@@ -100,13 +106,22 @@ abstract class PluginAnalyzerTask : DefaultTask() {
             val files = parameters.runtime.files.map(File::toPath) +
                 parameters.classpath.files.map(File::toPath)
             val messageGroups = mutableListOf<MessageGroup>()
-            val analyzer = DefaultAnalyzer(TypeRepository(files))
+            val analyzer = DefaultAnalyzer(TypeRepository(files)) { arg ->
+                when (arg) {
+                    is IClass -> formatType(arg.name)
+                    is TypeReference -> formatType(arg.name)
+                    is TypeName -> formatType(arg)
+                    is IField -> formatField(arg)
+                    is IMethod -> formatMethod(arg)
+                    else -> arg.toString()
+                }
+            }
 
             fun Analyzer.analyze(title: String, set: TypeSet, analysis: Analysis) {
                 val builder = ImmutableList.builder<Message>()
-                analyze(set, analysis, Reporter { level, message ->
+                analyze(set, analysis, Reporter { level, message, args ->
                     if (level.toInt() >= parameters.level.get().toInt()) {
-                        builder.add(Message(level.name, message))
+                        builder.add(Message(level.name, message.format(*args)))
                     }
                 })
                 val messages = builder.build()
@@ -124,6 +139,17 @@ abstract class PluginAnalyzerTask : DefaultTask() {
             FileOutputStream(report).use { stream ->
                 Json.encodeToStream(messageGroups, stream)
             }
+        }
+
+        private fun formatType(type: TypeName) = "type `${toFQCN(type.toString())}`"
+        private fun formatField(field: IField) = "field `${toFQCN(field.declaringClass)}.${field.name}`"
+        private fun formatMethod(method: IMethod): String {
+            val paramTypes = mutableListOf<String>()
+            for (iParam in 0 until method.numberOfParameters) {
+                // Let's use the simple name of parameter types
+                paramTypes += method.getParameterType(iParam).name.className.toString()
+            }
+            return "method `${toFQCN(method.declaringClass)}.${method.name}(${paramTypes.joinToString(",")})`"
         }
     }
 
@@ -177,7 +203,13 @@ abstract class FormatReportTask : DefaultTask() {
                     writer.println("### ${messageGroup.title}")
                     writer.println()
                     messageGroup.messages.forEach { message ->
-                        writer.println("- ${message.level}: ${message.message}")
+                        val levelSymbol = when (message.level) {
+                            "INFO" -> "\uD83D\uDCAC"
+                            "WARN" -> "⚠\uFE0F"
+                            "ERROR" -> "❌"
+                            else -> "❓"
+                        }
+                        writer.println("- ${levelSymbol} ${message.message}")
                     }
                     writer.println()
                 }

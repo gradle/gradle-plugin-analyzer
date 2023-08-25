@@ -1,6 +1,7 @@
 package org.gradlex.plugins.analyzer;
 
 import com.ibm.wala.classLoader.IClass;
+import com.ibm.wala.classLoader.IMethod;
 import com.ibm.wala.types.TypeReference;
 
 import javax.annotation.Nullable;
@@ -27,4 +28,7 @@ public interface TypeResolver {
     default IClass getClass(String name) {
         return Objects.requireNonNull(findClass(name));
     }
+
+    @Nullable
+    IMethod resolveMethod(String typeName, String methodSignature);
 }

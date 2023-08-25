@@ -18,7 +18,7 @@ class TypeShouldNotOverrideSetterTest extends AbstractAnalysisSpec {
 
         then:
         reports == [
-            "INFO: The setter setEnabled() in LCustomTask overrides Gradle API from Lorg/gradle/api/DefaultTask, but calls only super()"
+            "INFO: The setter method CustomTask.setEnabled(Z)V overrides Gradle API from type Lorg/gradle/api/DefaultTask, but calls only super()",
         ]
     }
 }

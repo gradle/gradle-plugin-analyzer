@@ -34,9 +34,9 @@ dependencies {
     implementation("org.slf4j:slf4j-api:2.0.7")
     testRuntimeOnly("org.slf4j:slf4j-simple:2.0.7")
 
+    api("com.ibm.wala:com.ibm.wala.core:${walaVersion}")
     implementation("com.ibm.wala:com.ibm.wala.shrike:${walaVersion}")
     implementation("com.ibm.wala:com.ibm.wala.util:${walaVersion}")
-    implementation("com.ibm.wala:com.ibm.wala.core:${walaVersion}")
     implementation("com.ibm.wala:com.ibm.wala.cast:${walaVersion}")
     implementation("com.ibm.wala:com.ibm.wala.cast.java:${walaVersion}")
     implementation("com.ibm.wala:com.ibm.wala.cast.java.ecj:${walaVersion}")

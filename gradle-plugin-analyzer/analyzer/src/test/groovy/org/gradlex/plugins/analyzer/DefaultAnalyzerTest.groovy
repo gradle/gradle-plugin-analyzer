@@ -48,14 +48,14 @@ class DefaultAnalyzerTest extends AbstractAnalysisSpec {
     }
 
     @Override
-    protected Analyzer getAnalyzer() {
+    protected TypeRepository getRepository() {
         def pluginFiles = explode(System.getProperty("plugin-files"), FileSystems.default).toList()
-        new DefaultAnalyzer(new TypeRepository(files + pluginFiles))
+        return new TypeRepository(files + pluginFiles)
     }
 
     @Override
     protected Reporter getReporter() {
-        { level, message -> println("$level: $message") }
+        { level, message, args -> println("$level: ${message.formatted(args)}") }
     }
 
     private static Stream<Path> explode(String paths, FileSystem fileSystem) {
