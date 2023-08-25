@@ -1,4 +1,5 @@
 import com.google.common.collect.ImmutableList
+import com.google.common.collect.ImmutableSortedSet
 import com.ibm.wala.classLoader.IClass
 import com.ibm.wala.classLoader.IField
 import com.ibm.wala.classLoader.IMethod
@@ -34,6 +35,7 @@ import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import java.util.SortedSet
 
 plugins {
     // Required since we are resolving JVM artifacts
@@ -64,7 +66,9 @@ open class PluginAnalyzerExtension(objects: ObjectFactory) {
 }
 
 @Serializable
-data class Message(val level: String, val message: String)
+data class Message(val level: String, val message: String) : Comparable<Message> {
+    override fun compareTo(other: Message) = message.compareTo(other.message)
+}
 
 @Serializable
 data class MessageGroup(val title: String, val messages: List<Message>)
@@ -118,7 +122,7 @@ abstract class PluginAnalyzerTask : DefaultTask() {
             }
 
             fun Analyzer.analyze(title: String, set: TypeSet, analysis: Analysis) {
-                val builder = ImmutableList.builder<Message>()
+                val builder = ImmutableSortedSet.naturalOrder<Message>()
                 analyze(set, analysis, Reporter { level, message, args ->
                     if (level.toInt() >= parameters.level.get().toInt()) {
                         builder.add(Message(level.name, message.format(*args)))
@@ -126,7 +130,7 @@ abstract class PluginAnalyzerTask : DefaultTask() {
                 })
                 val messages = builder.build()
                 if (!messages.isEmpty()) {
-                    messageGroups.add(MessageGroup(title, messages))
+                    messageGroups.add(MessageGroup(title, messages.asList()))
                 }
             }
 
