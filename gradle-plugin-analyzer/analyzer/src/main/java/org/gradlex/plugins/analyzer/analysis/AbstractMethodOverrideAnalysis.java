@@ -73,8 +73,9 @@ public abstract class AbstractMethodOverrideAnalysis implements Analysis {
                     }
                 );
         } catch (AnalysisException ex) {
-            context.report(Level.WARN, String.format("The %s %s() in %s overrides Gradle API from %s with custom logic: %s",
-                methodType, method.getName(), type.getName(), overriddenMethod.getDeclaringClass().getName(), ex.getMessage()));
+            // TODO Report the custom code in some form
+            context.report(Level.WARN, String.format("The %s %s() in %s overrides Gradle API from %s with custom logic",
+                methodType, method.getName(), type.getName(), overriddenMethod.getDeclaringClass().getName()));
         }
     }
 
