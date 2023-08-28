@@ -222,12 +222,12 @@ abstract class PluginAnalysisCollectorTask : DefaultTask() {
     }
 
     fun writeReport(writer: PrintWriter, pluginReport: PluginReport, pluginIds: Collection<String>) {
-        writer.println("## Plugin ${pluginIds.joinToString { formatPluginId(it) }}")
+        writer.println("## Plugin ${pluginIds.joinToString { formatPluginId(it) }} (${pluginReport.messageGroups.map { it.messages.size }.sum()})")
         writer.println()
 
         if (pluginReport.messageGroups.isNotEmpty()) {
             pluginReport.messageGroups.forEach { messageGroup ->
-                writer.println("### ${messageGroup.title}")
+                writer.println("### ${messageGroup.title} (${messageGroup.messages.size})")
                 writer.println()
                 messageGroup.messages.forEach { message ->
                     val levelSymbol = when (message.level) {
