@@ -243,6 +243,7 @@ abstract class PluginAnalysisCollectorTask : DefaultTask() {
         } else {
             writer.println("No messages generated. Good plugin! ❤\uFE0F")
         }
+        writer.println()
     }
 
     private fun formatPluginId(pluginId: String) = "[`${pluginId}`](https://plugins.gradle.org/plugin/${pluginId})"
