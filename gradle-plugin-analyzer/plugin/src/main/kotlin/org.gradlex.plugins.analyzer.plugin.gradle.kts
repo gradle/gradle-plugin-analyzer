@@ -190,6 +190,7 @@ abstract class PluginAnalysisCollectorTask : DefaultTask() {
     @get:OutputFile
     abstract val aggregateReportFile: RegularFileProperty
 
+    @OptIn(ExperimentalSerializationApi::class)
     @TaskAction
     fun execute() {
         val allPluginReports = MultimapBuilder
