@@ -1,5 +1,5 @@
-import com.google.common.collect.ImmutableList
 import com.google.common.collect.ImmutableSortedSet
+import com.google.common.collect.MultimapBuilder
 import com.ibm.wala.classLoader.IClass
 import com.ibm.wala.classLoader.IField
 import com.ibm.wala.classLoader.IMethod
@@ -35,7 +35,6 @@ import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
-import java.util.SortedSet
 
 plugins {
     // Required since we are resolving JVM artifacts
@@ -72,6 +71,9 @@ data class Message(val level: String, val message: String) : Comparable<Message>
 
 @Serializable
 data class MessageGroup(val title: String, val messages: List<Message>)
+
+@Serializable
+data class PluginReport(val messageGroups: List<MessageGroup>)
 
 @CacheableTask
 abstract class PluginAnalyzerTask : DefaultTask() {
@@ -141,7 +143,7 @@ abstract class PluginAnalyzerTask : DefaultTask() {
 
             val report = parameters.reportFile.get().asFile
             FileOutputStream(report).use { stream ->
-                Json.encodeToStream(messageGroups, stream)
+                Json.encodeToStream(PluginReport(messageGroups), stream)
             }
         }
 
@@ -180,53 +182,6 @@ abstract class PluginAnalyzerTask : DefaultTask() {
 }
 
 @CacheableTask
-abstract class FormatReportTask : DefaultTask() {
-    @get:Input
-    abstract val pluginId: Property<String>
-
-    @get:InputFile
-    @get:PathSensitive(PathSensitivity.NONE)
-    abstract val jsonReport: RegularFileProperty
-
-    @get:OutputFile
-    abstract val markdownReport: RegularFileProperty
-
-    @OptIn(ExperimentalSerializationApi::class)
-    @TaskAction
-    fun execute() {
-        val inputFile = jsonReport.get().asFile
-        val outputFile = markdownReport.get().asFile
-
-        PrintWriter(outputFile).use { writer ->
-            writer.println("## Plugin [`${pluginId.get()}`](https://plugins.gradle.org/plugin/${pluginId.get()})")
-            writer.println()
-
-            val messageGroups = FileInputStream(inputFile).use { stream ->
-                Json.decodeFromStream<List<MessageGroup>>(stream)
-            }
-            if (messageGroups.isNotEmpty()) {
-                messageGroups.forEach { messageGroup ->
-                    writer.println("### ${messageGroup.title}")
-                    writer.println()
-                    messageGroup.messages.forEach { message ->
-                        val levelSymbol = when (message.level) {
-                            "INFO" -> "\uD83D\uDCAC"
-                            "WARN" -> "⚠\uFE0F"
-                            "ERROR" -> "❌"
-                            else -> "❓"
-                        }
-                        writer.println("- ${levelSymbol} ${message.message}")
-                    }
-                    writer.println()
-                }
-            } else {
-                writer.println("No messages generated. Good plugin! ❤\uFE0F")
-            }
-        }
-    }
-}
-
-@CacheableTask
 abstract class PluginAnalysisCollectorTask : DefaultTask() {
     @get:InputFiles
     @get:PathSensitive(PathSensitivity.NONE)
@@ -237,6 +192,20 @@ abstract class PluginAnalysisCollectorTask : DefaultTask() {
 
     @TaskAction
     fun execute() {
+        val allPluginReports = MultimapBuilder
+            .linkedHashKeys()
+            .treeSetValues()
+            .build<PluginReport, String>()
+
+        // Merge plugin reports with the same contents
+        inputReports.forEach { inputFile ->
+            val pluginReport = FileInputStream(inputFile).use { stream ->
+                Json.decodeFromStream<PluginReport>(stream)
+            }
+            var pluginId = inputFile.nameWithoutExtension
+            allPluginReports.put(pluginReport, pluginId)
+        }
+
         val report = aggregateReportFile.get().asFile
         PrintWriter(report).use { writer ->
             writer.println("# Plugin validation report")
@@ -244,13 +213,39 @@ abstract class PluginAnalysisCollectorTask : DefaultTask() {
             writer.println("Produced at **${LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))}**")
             writer.println()
 
-            inputReports.files.forEach { inputReport ->
-                writer.println(inputReport.readText())
+            allPluginReports.asMap().forEach { pluginReport, pluginIds ->
+                writeReport(writer, pluginReport, pluginIds)
             }
         }
 
         println("Plugin analysis report: " + report.absolutePath)
     }
+
+    fun writeReport(writer: PrintWriter, pluginReport: PluginReport, pluginIds: Collection<String>) {
+        writer.println("## Plugin ${pluginIds.joinToString { formatPluginId(it) }}")
+        writer.println()
+
+        if (pluginReport.messageGroups.isNotEmpty()) {
+            pluginReport.messageGroups.forEach { messageGroup ->
+                writer.println("### ${messageGroup.title}")
+                writer.println()
+                messageGroup.messages.forEach { message ->
+                    val levelSymbol = when (message.level) {
+                        "INFO" -> "\uD83D\uDCAC"
+                        "WARN" -> "⚠\uFE0F"
+                        "ERROR" -> "❌"
+                        else -> "❓"
+                    }
+                    writer.println("- ${levelSymbol} ${message.message}")
+                }
+                writer.println()
+            }
+        } else {
+            writer.println("No messages generated. Good plugin! ❤\uFE0F")
+        }
+    }
+
+    private fun formatPluginId(pluginId: String) = "[`${pluginId}`](https://plugins.gradle.org/plugin/${pluginId})"
 }
 
 open class PluginInfo(val artifact: String, val sourceUrl: String?) : Comparable<PluginInfo> {
@@ -318,18 +313,11 @@ pluginAnalyzer.analyzedPlugins.all {
     val analyzeTask = tasks.register<PluginAnalyzerTask>("analyze_$simplifiedName") {
         classpath = config
         runtime.from(gradleRuntime)
-        reportFile = project.layout.buildDirectory.file("plugin-analysis/plugins/report-${simplifiedName}.json")
-    }
-
-    val analyzedId = pluginId
-    val formatterTask = tasks.register<FormatReportTask>("format_$simplifiedName") {
-        pluginId = analyzedId
-        jsonReport = analyzeTask.flatMap { it.reportFile }
-        markdownReport = project.layout.buildDirectory.file("plugin-analysis/plugins/report-${simplifiedName}.md")
+        reportFile = project.layout.buildDirectory.file("plugin-analysis/plugins/${pluginId}.json")
     }
 
     analyzePluginsTask.configure {
-        inputReports.from(formatterTask.flatMap { it.markdownReport })
+        inputReports.from(analyzeTask.flatMap { it.reportFile })
     }
 }
 
