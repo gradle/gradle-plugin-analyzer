@@ -9,6 +9,9 @@ repositories {
 }
 
 pluginAnalyzer {
+    plugin("com.android.application")
+    plugin("com.android.library")
+
     // From top community plugins https://docs.google.com/spreadsheets/d/1eNmiNu6VNGQrLApwWPjCi4a2LldIHFGOcQTGj2A4qQM/
     plugin("au.com.dius.pact")
     plugin("com.adarshr.test-logger")
