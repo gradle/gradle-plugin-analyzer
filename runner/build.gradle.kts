@@ -39,7 +39,8 @@ pluginAnalyzer {
     plugin("com.diffplug.swt.nativedeps")
     plugin("com.github.ben-manes.versions")
     plugin("com.github.jk1.dependency-license-report")
-    plugin("com.github.johnrengelman.plugin-shadow")
+    // This looks like an old version of "com.github.johnrengelman.shadow", disabled
+    // plugin("com.github.johnrengelman.plugin-shadow")
     plugin("com.github.johnrengelman.shadow")
     plugin("com.github.node-gradle.grunt")
     plugin("com.github.node-gradle.gulp")
