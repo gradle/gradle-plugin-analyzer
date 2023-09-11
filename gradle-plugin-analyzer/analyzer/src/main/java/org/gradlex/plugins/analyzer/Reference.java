@@ -4,6 +4,7 @@ import com.ibm.wala.classLoader.IClass;
 import com.ibm.wala.classLoader.IField;
 import com.ibm.wala.classLoader.IMethod;
 import com.ibm.wala.types.TypeReference;
+import org.gradlex.plugins.analyzer.Reporter.Message;
 
 public record Reference(Source source, Target target) {
     public sealed interface Source {
@@ -34,5 +35,44 @@ public record Reference(Source source, Target target) {
     }
 
     public record MethodTarget(IMethod method) implements Target {
+    }
+
+    public static Message format(Reference reference) {
+        Target refTarget = reference.target();
+        Object target;
+        if (refTarget instanceof TypeTarget) {
+            target = ((TypeTarget) refTarget).type();
+        } else if (refTarget instanceof MethodTarget) {
+            target = ((MethodTarget) refTarget).method();
+        } else {
+            throw new AssertionError();
+        }
+
+        Source source = reference.source();
+        if (source instanceof TypeDeclarationSource) {
+            return new Message("The %s references %s",
+                ((TypeDeclarationSource) source).type(), target);
+        }
+        if (source instanceof TypeInheritanceSource) {
+            return new Message("The %s extends %s",
+                ((TypeInheritanceSource) source).type(), target);
+        }
+        if (source instanceof FieldDeclarationSource) {
+            return new Message("The %s references %s",
+                ((FieldDeclarationSource) source).field(), target);
+        }
+        if (source instanceof MethodDeclarationSource) {
+            return new Message("The declaration of %s references %s",
+                ((MethodDeclarationSource) source).method(), target);
+        }
+        if (source instanceof MethodInheritanceSource) {
+            return new Message("The %s overrides %s",
+                ((MethodInheritanceSource) source).method(), target);
+        }
+        if (source instanceof MethodBodySource) {
+            return new Message("The %s references %s",
+                ((MethodBodySource) source).method(), target);
+        }
+        throw new AssertionError();
     }
 }
