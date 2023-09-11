@@ -6,11 +6,23 @@ import com.ibm.wala.classLoader.IMethod;
 import com.ibm.wala.types.TypeReference;
 import org.gradlex.plugins.analyzer.Reporter.Message;
 
+import java.util.function.Function;
+
 public record Reference(Source source, Target target) {
     public sealed interface Source {
     }
 
     public sealed interface Target {
+        default <T> T mapTarget(Function<? super TypeReference, ? extends T> typeHandler,
+                         Function<? super IMethod, ? extends T> methodHandler) {
+            if (this instanceof TypeTarget) {
+                return typeHandler.apply(((TypeTarget) this).type());
+            }
+            if (this instanceof MethodTarget) {
+                return methodHandler.apply(((MethodTarget) this).method());
+            }
+            throw new AssertionError();
+        }
     }
 
     public record TypeDeclarationSource(IClass type) implements Source {
