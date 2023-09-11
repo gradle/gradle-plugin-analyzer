@@ -2,17 +2,19 @@ package org.gradlex.plugins.analyzer;
 
 import com.ibm.wala.classLoader.IClass;
 import com.ibm.wala.classLoader.IField;
+import com.ibm.wala.classLoader.IMember;
 import com.ibm.wala.classLoader.IMethod;
 import com.ibm.wala.types.TypeReference;
 import org.gradlex.plugins.analyzer.Reporter.Message;
 
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 public record Reference(Source source, Target target) {
     public sealed interface Source {
-        default <T> T mapSource(Function<? super IClass, ? extends T> typeHandler,
-                                Function<? super IField, ? extends T> fieldHandler,
-                                Function<? super IMethod, ? extends T> methodHandler) {
+        default <T> T map(Function<? super IClass, ? extends T> typeHandler,
+                          Function<? super IField, ? extends T> fieldHandler,
+                          Function<? super IMethod, ? extends T> methodHandler) {
             if (this instanceof TypeSource) {
                 return typeHandler.apply(((TypeSource) this).type());
             }
@@ -27,8 +29,8 @@ public record Reference(Source source, Target target) {
     }
 
     public sealed interface Target {
-        default <T> T mapTarget(Function<? super TypeReference, ? extends T> typeHandler,
-                         Function<? super IMethod, ? extends T> methodHandler) {
+        default <T> T map(Function<? super TypeReference, ? extends T> typeHandler,
+                          Function<? super IMethod, ? extends T> methodHandler) {
             if (this instanceof TypeTarget) {
                 return typeHandler.apply(((TypeTarget) this).type());
             }
@@ -37,6 +39,21 @@ public record Reference(Source source, Target target) {
             }
             throw new AssertionError();
         }
+    }
+
+    public static Predicate<Reference> sourceIs(TypeOrigin origin) {
+        return reference -> TypeOrigin.of(reference.source.map(
+            Function.identity(),
+            IMember::getDeclaringClass,
+            IMember::getDeclaringClass
+        )) == origin;
+    }
+
+    public static Predicate<Reference> targetIs(TypeOrigin origin) {
+        return reference -> TypeOrigin.of(reference.target.map(
+            Function.identity(),
+            method -> method.getDeclaringClass().getReference()
+        )) == origin;
     }
 
     public sealed interface TypeSource extends Source {

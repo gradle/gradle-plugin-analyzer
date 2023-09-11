@@ -1,7 +1,6 @@
 package org.gradlex.plugins.analyzer
 
-import com.ibm.wala.classLoader.IMethod
-import com.ibm.wala.types.TypeReference
+
 import org.gradlex.plugins.analyzer.analysis.AbstractAnalysisSpec
 
 class TypeReferenceWalkerTest extends AbstractAnalysisSpec {
@@ -29,20 +28,11 @@ class TypeReferenceWalkerTest extends AbstractAnalysisSpec {
         def types = new TreeSet<String>()
         def methods = new TreeSet<String>()
 
-        def visitor = new TypeReferenceWalker.ReferenceVisitor(repository.typeResolver) {
-            @Override
-            void visitType(TypeReference reference) {
-                types += reference.name.toString()
-            }
-
-            @Override
-            void visitMethod(IMethod method) {
-                methods += method.signature
-            }
-        }
-
         def clazz = repository.typeResolver.findClass("LCustomType")
-        TypeReferenceWalker.walkReferences(clazz, TypeReferenceWalker.ReferenceVisitorFactory.alwaysWith(visitor))
+        TypeReferenceWalker.walkReferences(clazz, repository.typeResolver, reference -> reference.target().map(
+            type -> types += type.name.toString(),
+            method -> methods += method.signature
+        ))
 
         expect:
         types.toList() == [

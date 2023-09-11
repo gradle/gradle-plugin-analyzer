@@ -2,11 +2,9 @@ package org.gradlex.plugins.analyzer.analysis;
 
 import com.google.common.collect.ImmutableSet;
 import com.ibm.wala.classLoader.IClass;
-import com.ibm.wala.classLoader.IMember;
 import com.ibm.wala.types.TypeReference;
 import org.gradlex.plugins.analyzer.Analysis;
 import org.gradlex.plugins.analyzer.Reference;
-import org.gradlex.plugins.analyzer.TypeOrigin;
 import org.gradlex.plugins.analyzer.TypeReferenceWalker;
 
 import java.util.LinkedHashSet;
@@ -31,12 +29,8 @@ public class FindTypeReferences implements Analysis {
         TypeReferenceWalker.walkReferences(type, context.getResolver(), references::add);
 
         references.stream()
-            .filter(reference -> TypeOrigin.of(reference.source().mapSource(
-                sourceType -> sourceType,
-                IMember::getDeclaringClass,
-                IMember::getDeclaringClass
-            )) == EXTERNAL)
-            .filter(reference -> reference.target().mapTarget(types::contains, __ -> false))
+            .filter(Reference.sourceIs(EXTERNAL))
+            .filter(reference -> reference.target().map(types::contains, __ -> false))
             .map(Reference::format)
             .forEach(message -> context.report(INFO, message));
     }
