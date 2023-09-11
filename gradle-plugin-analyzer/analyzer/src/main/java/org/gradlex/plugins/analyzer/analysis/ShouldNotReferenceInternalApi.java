@@ -1,20 +1,28 @@
 package org.gradlex.plugins.analyzer.analysis;
 
 import com.ibm.wala.classLoader.IClass;
-import com.ibm.wala.classLoader.IField;
 import com.ibm.wala.classLoader.IMethod;
 import com.ibm.wala.types.TypeReference;
 import org.gradlex.plugins.analyzer.Analysis;
+import org.gradlex.plugins.analyzer.Reference;
+import org.gradlex.plugins.analyzer.Reference.FieldDeclarationSource;
+import org.gradlex.plugins.analyzer.Reference.MethodBodySource;
+import org.gradlex.plugins.analyzer.Reference.MethodDeclarationSource;
+import org.gradlex.plugins.analyzer.Reference.MethodInheritanceSource;
+import org.gradlex.plugins.analyzer.Reference.MethodTarget;
+import org.gradlex.plugins.analyzer.Reference.Source;
+import org.gradlex.plugins.analyzer.Reference.Target;
+import org.gradlex.plugins.analyzer.Reference.TypeDeclarationSource;
+import org.gradlex.plugins.analyzer.Reference.TypeInheritanceSource;
+import org.gradlex.plugins.analyzer.Reference.TypeTarget;
 import org.gradlex.plugins.analyzer.Reporter.Message;
 import org.gradlex.plugins.analyzer.TypeOrigin;
 import org.gradlex.plugins.analyzer.TypeReferenceWalker;
-import org.gradlex.plugins.analyzer.TypeReferenceWalker.ReferenceVisitor;
-import org.gradlex.plugins.analyzer.TypeReferenceWalker.ReferenceVisitorFactory;
-import org.gradlex.plugins.analyzer.TypeResolver;
 import org.gradlex.plugins.analyzer.WalaUtil;
 
-import java.util.HashSet;
-import java.util.Set;
+import javax.annotation.Nullable;
+import java.util.LinkedHashSet;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.slf4j.event.Level.WARN;
@@ -25,129 +33,81 @@ import static org.slf4j.event.Level.WARN;
 public class ShouldNotReferenceInternalApi implements Analysis {
     @Override
     public void analyzeType(IClass type, AnalysisContext context) {
-        ReferenceCollector referenceCollector = new ReferenceCollector(context);
+        var references = new LinkedHashSet<Reference>();
+        TypeReferenceWalker.walkReferences(type, context.getResolver(), references::add);
 
-        TypeReferenceWalker.walkReferences(type, referenceCollector);
-
-        referenceCollector.references.forEach(reference -> context.report(WARN, reference));
+        references.stream()
+            .map(ShouldNotReferenceInternalApi::formatMessage)
+            .filter(Objects::nonNull)
+            .forEach(message -> context.report(WARN, message));
     }
 
-    private static class ReferenceCollector implements ReferenceVisitorFactory {
-        private final AnalysisContext context;
-        private final Set<Message> references = new HashSet<>();
+    @Nullable
+    private static Message formatMessage(Reference reference) {
+        Target refTarget = reference.target();
+        Object target;
+        if (refTarget instanceof TypeTarget) {
+            TypeReference type = ((TypeTarget) refTarget).type();
+            // Ignore references to non-internal types
+            if (TypeOrigin.of(type) != TypeOrigin.INTERNAL) {
+                return null;
+            }
+            target = type;
+        } else if (refTarget instanceof MethodTarget) {
+            IMethod method = ((MethodTarget) refTarget).method();
 
-        public ReferenceCollector(AnalysisContext context) {
-            this.context = context;
-        }
-
-        @Override
-        public ReferenceVisitor forTypeHierarchy(IClass type) {
-            return new Recorder(context.getResolver()) {
-                @Override
-                protected Message formatReference(Object reference) {
-                    return new Message("The %s extends internal Gradle %s", type, reference);
-                }
-            };
-        }
-
-        @Override
-        public ReferenceVisitor forTypeAnnotations(IClass type) {
-            return forAnnotations(type);
-        }
-
-        @Override
-        public ReferenceVisitor forFieldDeclaration(IField field) {
-            return new Recorder(context.getResolver()) {
-                @Override
-                protected Message formatReference(Object reference) {
-                    return new Message("The %s references internal Gradle %s", field, reference);
-                }
-            };
-        }
-
-        @Override
-        public ReferenceVisitor forFieldAnnotations(IField field) {
-            return forAnnotations(field);
-        }
-
-        @Override
-        public ReferenceVisitor forMethodDeclaration(IMethod originMethod) {
-            return new Recorder(context.getResolver()) {
-                @Override
-                protected Message formatReference(Object reference) {
-                    return new Message("The declaration of %s references internal Gradle %s", originMethod, reference);
-                }
-            };
-        }
-
-        @Override
-        public ReferenceVisitor forMethodInheritance(IMethod originMethod) {
-            return new Recorder(context.getResolver()) {
-                @Override
-                protected Message formatReference(Object reference) {
-                    return new Message("The %s overrides internal Gradle %s", originMethod, reference);
-                }
-            };
-        }
-
-        @Override
-        public ReferenceVisitor forMethodBody(IMethod originMethod) {
-            return new Recorder(context.getResolver()) {
-                @Override
-                protected Message formatReference(Object reference) {
-                    return new Message("The %s references internal Gradle %s", originMethod, reference);
-                }
-            };
-        }
-
-        @Override
-        public ReferenceVisitor forMethodAnnotations(IMethod method) {
-            return forAnnotations(method);
-        }
-
-        private ReferenceVisitor forAnnotations(Object subject) {
-            return new Recorder(context.getResolver()) {
-                @Override
-                protected Message formatReference(Object reference) {
-                    return new Message("Annotation on %s references internal Gradle %s", subject, reference);
-                }
-            };
-        }
-
-        public abstract class Recorder extends ReferenceVisitor {
-            public Recorder(TypeResolver typeResolver) {
-                super(typeResolver);
+            IClass type = method.getDeclaringClass();
+            // Ignore references to non-internal types
+            if (TypeOrigin.of(type) != TypeOrigin.INTERNAL) {
+                return null;
             }
 
-            @Override
-            public void visitType(TypeReference reference) {
-                if (TypeOrigin.of(reference) == TypeOrigin.INTERNAL) {
-                    references.add(formatReference(reference));
-                }
-            }
-
-            @Override
-            public void visitMethod(IMethod method) {
-                IClass type = method.getDeclaringClass();
-                if (TypeOrigin.of(type) == TypeOrigin.INTERNAL) {
-                    // Try to find method in a public supertype
-                    var hasPublicDefinition = new AtomicBoolean(false);
-                    WalaUtil.visitTypeHierarchy(type, superType -> {
-                        if (TypeOrigin.isPublicGradleApi(superType)) {
-                            if (superType.getMethod(method.getSelector()) != null) {
-                                hasPublicDefinition.set(true);
-                                return false;
-                            }
-                        }
-                        return true;
-                    });
-                    if (!hasPublicDefinition.get()) {
-                        references.add(formatReference(method));
+            // Try to find method in a public supertype
+            var hasPublicDefinition = new AtomicBoolean(false);
+            WalaUtil.visitTypeHierarchy(type, superType -> {
+                if (TypeOrigin.isPublicGradleApi(superType)) {
+                    if (superType.getMethod(method.getSelector()) != null) {
+                        hasPublicDefinition.set(true);
+                        return false;
                     }
                 }
-            }
+                return true;
+            });
 
-            protected abstract Message formatReference(Object reference);
+            // Skip method if it's defined in a public API type
+            if (hasPublicDefinition.get()) {
+                return null;
+            }
+            target = method;
+        } else {
+            throw new AssertionError();
         }
+
+        Source source = reference.source();
+        if (source instanceof TypeDeclarationSource) {
+            return new Message("The %s references internal Gradle %s",
+                ((TypeDeclarationSource) source).type(), target);
+        }
+        if (source instanceof TypeInheritanceSource) {
+            return new Message("The %s extends internal Gradle %s",
+                ((TypeInheritanceSource) source).type(), target);
+        }
+        if (source instanceof FieldDeclarationSource) {
+            return new Message("The %s references internal Gradle %s",
+                ((FieldDeclarationSource) source).field(), target);
+        }
+        if (source instanceof MethodDeclarationSource) {
+            return new Message("The declaration of %s references internal Gradle %s",
+                ((MethodDeclarationSource) source).method(), target);
+        }
+        if (source instanceof MethodInheritanceSource) {
+            return new Message("The %s overrides internal Gradle %s",
+                ((MethodInheritanceSource) source).method(), target);
+        }
+        if (source instanceof MethodBodySource) {
+            return new Message("The %s references internal Gradle %s",
+                ((MethodBodySource) source).method(), target);
+        }
+        throw new AssertionError();
     }
 }

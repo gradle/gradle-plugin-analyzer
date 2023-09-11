@@ -146,9 +146,9 @@ class ShouldNotReferenceInternalApiTest extends AbstractAnalysisSpec {
 
         then:
         reports == [
-            "WARN: Annotation on method CustomTask.doSomething()V references internal Gradle type Lorg/gradle/internal/instrumentation/api/annotations/InterceptInherited",
-            "WARN: Annotation on type LCustomTask references internal Gradle type Lorg/gradle/api/internal/BuildType",
-            "WARN: Annotation on type LCustomTask references internal Gradle type Lorg/gradle/internal/instrumentation/api/annotations/VisitForInstrumentation",
+            "WARN: The declaration of method CustomTask.doSomething()V references internal Gradle type Lorg/gradle/internal/instrumentation/api/annotations/InterceptInherited",
+            "WARN: The type LCustomTask references internal Gradle type Lorg/gradle/api/internal/BuildType",
+            "WARN: The type LCustomTask references internal Gradle type Lorg/gradle/internal/instrumentation/api/annotations/VisitForInstrumentation",
         ]
     }
 }

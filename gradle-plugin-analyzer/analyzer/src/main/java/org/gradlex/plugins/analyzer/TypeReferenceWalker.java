@@ -41,19 +41,26 @@ import com.ibm.wala.shrike.shrikeCT.AnnotationsReader.EnumElementValue;
 import com.ibm.wala.shrike.shrikeCT.InvalidClassFileException;
 import com.ibm.wala.types.TypeReference;
 import com.ibm.wala.types.annotations.Annotation;
+import org.gradlex.plugins.analyzer.Reference.FieldDeclarationSource;
+import org.gradlex.plugins.analyzer.Reference.MethodBodySource;
+import org.gradlex.plugins.analyzer.Reference.MethodDeclarationSource;
+import org.gradlex.plugins.analyzer.Reference.MethodInheritanceSource;
+import org.gradlex.plugins.analyzer.Reference.MethodTarget;
+import org.gradlex.plugins.analyzer.Reference.Source;
+import org.gradlex.plugins.analyzer.Reference.TypeDeclarationSource;
+import org.gradlex.plugins.analyzer.Reference.TypeInheritanceSource;
+import org.gradlex.plugins.analyzer.Reference.TypeTarget;
 
 import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 public class TypeReferenceWalker {
 
-    public static void walkReferences(IClass type, ReferenceVisitor visitor) {
-        walkReferences(type, ReferenceVisitorFactory.alwaysWith(visitor));
-    }
-
-    public static void walkReferences(IClass type, ReferenceVisitorFactory visitorFactory) {
+    public static void walkReferences(IClass type, TypeResolver typeResolver, Consumer<Reference> handler) {
+        ReferenceVisitorFactory visitorFactory = new ReferenceVisitorFactory(typeResolver, handler);
         WalaUtil.visitImmediateInternalSupertypes(type, visitorFactory.forTypeHierarchy(type)::visitType);
 
         visitAnnotations(type.getAnnotations(), visitorFactory.forTypeAnnotations(type));
@@ -291,73 +298,60 @@ public class TypeReferenceWalker {
         });
     }
 
-    public interface ReferenceVisitorFactory {
-        ReferenceVisitor forTypeHierarchy(IClass type);
+    public static class ReferenceVisitorFactory {
+        private final TypeResolver typeResolver;
+        private final Consumer<Reference> handler;
 
-        ReferenceVisitor forTypeAnnotations(IClass type);
+        public ReferenceVisitorFactory(TypeResolver typeResolver, Consumer<Reference> handler) {
+            this.typeResolver = typeResolver;
+            this.handler = handler;
+        }
 
-        ReferenceVisitor forFieldDeclaration(IField field);
+        public ReferenceVisitor forTypeHierarchy(IClass type) {
+            return new ReferenceVisitor(new TypeInheritanceSource(type), typeResolver, handler);
+        }
 
-        ReferenceVisitor forFieldAnnotations(IField field);
+        public ReferenceVisitor forTypeAnnotations(IClass type) {
+            // TODO Merge this with forTypeHierarchy()
+            return new ReferenceVisitor(new TypeDeclarationSource(type), typeResolver, handler);
+        }
 
-        ReferenceVisitor forMethodDeclaration(IMethod originMethod);
+        public ReferenceVisitor forFieldDeclaration(IField field) {
+            return new ReferenceVisitor(new FieldDeclarationSource(field), typeResolver, handler);
+        }
 
-        ReferenceVisitor forMethodInheritance(IMethod originMethod);
+        public ReferenceVisitor forFieldAnnotations(IField field) {
+            // TODO Merge this with forFieldDeclaration()
+            return new ReferenceVisitor(new FieldDeclarationSource(field), typeResolver, handler);
+        }
 
-        ReferenceVisitor forMethodBody(IMethod originMethod);
+        public ReferenceVisitor forMethodDeclaration(IMethod method) {
+            return new ReferenceVisitor(new MethodDeclarationSource(method), typeResolver, handler);
+        }
 
-        ReferenceVisitor forMethodAnnotations(IMethod method);
+        public ReferenceVisitor forMethodInheritance(IMethod method) {
+            return new ReferenceVisitor(new MethodInheritanceSource(method), typeResolver, handler);
+        }
 
-        static ReferenceVisitorFactory alwaysWith(ReferenceVisitor visitor) {
-            return new ReferenceVisitorFactory() {
-                @Override
-                public ReferenceVisitor forTypeHierarchy(IClass type) {
-                    return visitor;
-                }
+        public ReferenceVisitor forMethodBody(IMethod method) {
+            return new ReferenceVisitor(new MethodBodySource(method), typeResolver, handler);
+        }
 
-                @Override
-                public ReferenceVisitor forTypeAnnotations(IClass type) {
-                    return visitor;
-                }
-
-                @Override
-                public ReferenceVisitor forFieldDeclaration(IField field) {
-                    return visitor;
-                }
-
-                @Override
-                public ReferenceVisitor forFieldAnnotations(IField field) {
-                    return visitor;
-                }
-
-                @Override
-                public ReferenceVisitor forMethodDeclaration(IMethod originMethod) {
-                    return visitor;
-                }
-
-                @Override
-                public ReferenceVisitor forMethodInheritance(IMethod originMethod) {
-                    return visitor;
-                }
-
-                @Override
-                public ReferenceVisitor forMethodBody(IMethod originMethod) {
-                    return visitor;
-                }
-
-                @Override
-                public ReferenceVisitor forMethodAnnotations(IMethod method) {
-                    return visitor;
-                }
-            };
+        public ReferenceVisitor forMethodAnnotations(IMethod method) {
+            // TODO Merge this with forMethodDeclaration()
+            return new ReferenceVisitor(new MethodDeclarationSource(method), typeResolver, handler);
         }
     }
 
-    public abstract static class ReferenceVisitor {
+    public static class ReferenceVisitor {
+        private final Source source;
         private final TypeResolver typeResolver;
+        private final Consumer<Reference> handler;
 
-        protected ReferenceVisitor(TypeResolver typeResolver) {
+        protected ReferenceVisitor(Source source, TypeResolver typeResolver, Consumer<Reference> handler) {
+            this.source = source;
             this.typeResolver = typeResolver;
+            this.handler = handler;
         }
 
         public void visitType(String typeName) {
@@ -367,19 +361,23 @@ public class TypeReferenceWalker {
             }
         }
 
-        public abstract void visitType(TypeReference reference);
-
         public void visitType(IClass type) {
             visitType(type.getReference());
         }
 
-        public abstract void visitMethod(IMethod method);
+        public void visitType(TypeReference reference) {
+            handler.accept(new Reference(source, new TypeTarget(reference)));
+        }
 
         public void visitMethod(String typeName, String methodSignature) {
             IMethod method = typeResolver.resolveMethod(typeName, methodSignature);
             if (method != null) {
                 visitMethod(method);
             }
+        }
+
+        public void visitMethod(IMethod method) {
+            handler.accept(new Reference(source, new MethodTarget(method)));
         }
     }
 }
