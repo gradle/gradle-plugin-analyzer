@@ -120,14 +120,14 @@ public class ShouldNotReferenceInternalApi implements Analysis {
             }
 
             @Override
-            public void visitReference(TypeReference reference) {
+            public void visitType(TypeReference reference) {
                 if (TypeOrigin.of(reference) == TypeOrigin.INTERNAL) {
                     references.add(formatReference(reference));
                 }
             }
 
             @Override
-            public void visitMethodReference(IMethod method) {
+            public void visitMethod(IMethod method) {
                 IClass type = method.getDeclaringClass();
                 if (TypeOrigin.of(type) == TypeOrigin.INTERNAL) {
                     // Try to find method in a public supertype

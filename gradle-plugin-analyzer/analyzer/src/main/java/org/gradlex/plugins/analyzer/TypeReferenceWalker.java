@@ -50,7 +50,7 @@ import java.util.stream.Stream;
 public class TypeReferenceWalker {
 
     public static void walkReferences(IClass type, ReferenceVisitorFactory visitorFactory) {
-        WalaUtil.visitImmediateInternalSupertypes(type, visitorFactory.forTypeHierarchy(type)::visitReference);
+        WalaUtil.visitImmediateInternalSupertypes(type, visitorFactory.forTypeHierarchy(type)::visitType);
 
         visitAnnotations(type.getAnnotations(), visitorFactory.forTypeAnnotations(type));
 
@@ -59,7 +59,7 @@ public class TypeReferenceWalker {
                 type.getDeclaredInstanceFields().stream())
             .forEach(field -> {
                 visitAnnotations(field.getAnnotations(), visitorFactory.forFieldAnnotations(field));
-                visitorFactory.forFieldDeclaration(field).visitReference(field.getFieldTypeReference());
+                visitorFactory.forFieldDeclaration(field).visitType(field.getFieldTypeReference());
             });
 
         Stream.concat(
@@ -73,22 +73,22 @@ public class TypeReferenceWalker {
             return;
         }
         annotations.forEach(annotation -> {
-            visitor.visitReference(annotation.getType());
+            visitor.visitType(annotation.getType());
             Stream.ofNullable(annotation.getUnnamedArguments())
                 .flatMap(Arrays::stream)
                 .map(arg -> arg.fst)
-                .forEach(visitor::visitReference);
+                .forEach(visitor::visitType);
             annotation.getNamedArguments().values()
                 .forEach(rootValue -> WalaUtil.visitHierarchy(rootValue, value -> {
                     if (value instanceof ArrayElementValue vArray) {
                         return Arrays.stream(vArray.vals);
                     } else if (value instanceof AnnotationAttribute vAnnotation) {
-                        visitor.visitReference(vAnnotation.type);
+                        visitor.visitType(vAnnotation.type);
                         return vAnnotation.elementValues.values().stream();
                     } else if (value instanceof ConstantElementValue vConst) {
                         if (vConst.val instanceof String typeName) {
                             try {
-                                visitor.visitReference(typeName);
+                                visitor.visitType(typeName);
                             } catch (IllegalArgumentException ignored) {
                                 // Sometimes we end up here when the argument is not a Class, but a String with some random crap.
                                 // We could look at the Annotation's parameter definitions, and figure if it was a Class.
@@ -96,7 +96,7 @@ public class TypeReferenceWalker {
                             }
                         }
                     } else if (value instanceof EnumElementValue vEnum) {
-                        visitor.visitReference(vEnum.enumType);
+                        visitor.visitType(vEnum.enumType);
                     }
                     return Stream.empty();
                 }));
@@ -107,11 +107,11 @@ public class TypeReferenceWalker {
         visitAnnotations(method.getAnnotations(), visitorFactory.forMethodAnnotations(method));
 
         ReferenceVisitor declarationVisitor = visitorFactory.forMethodDeclaration(method);
-        declarationVisitor.visitReference(method.getReturnType());
+        declarationVisitor.visitType(method.getReturnType());
         for (int iParam = 0; iParam < method.getNumberOfParameters(); iParam++) {
-            declarationVisitor.visitReference(method.getParameterType(iParam));
+            declarationVisitor.visitType(method.getParameterType(iParam));
         }
-        getDeclaredExceptions(method).forEach(declarationVisitor::visitReference);
+        getDeclaredExceptions(method).forEach(declarationVisitor::visitType);
 
         // Do not report inherited constructors as we already report extending internal types
         if (!method.isInit() && !method.isClinit()) {
@@ -119,7 +119,7 @@ public class TypeReferenceWalker {
             WalaUtil.visitImmediateInternalSupertypes(method.getDeclaringClass(), superType -> {
                 IMethod implementedMethod = superType.getMethod(method.getSelector());
                 if (implementedMethod != null) {
-                    inheritanceVisitor.visitMethodReference(implementedMethod);
+                    inheritanceVisitor.visitMethod(implementedMethod);
                 }
             });
         }
@@ -141,20 +141,20 @@ public class TypeReferenceWalker {
         instruction.visit(new Visitor() {
             @Override
             public void visitConstant(ConstantInstruction instruction) {
-                visitor.visitReference(instruction.getType());
+                visitor.visitType(instruction.getType());
                 if (instruction.getValue() instanceof ClassToken token) {
-                    visitor.visitReference(token.getTypeName());
+                    visitor.visitType(token.getTypeName());
                 }
             }
 
             @Override
             public void visitLocalLoad(ILoadInstruction instruction) {
-                visitor.visitReference(instruction.getType());
+                visitor.visitType(instruction.getType());
             }
 
             @Override
             public void visitLocalStore(IStoreInstruction instruction) {
-                visitor.visitReference(instruction.getType());
+                visitor.visitType(instruction.getType());
             }
 
             @Override
@@ -164,12 +164,12 @@ public class TypeReferenceWalker {
 
             @Override
             public void visitArrayLoad(IArrayLoadInstruction instruction) {
-                visitor.visitReference(instruction.getType());
+                visitor.visitType(instruction.getType());
             }
 
             @Override
             public void visitArrayStore(IArrayStoreInstruction instruction) {
-                visitor.visitReference(instruction.getType());
+                visitor.visitType(instruction.getType());
             }
 
             @Override
@@ -189,33 +189,33 @@ public class TypeReferenceWalker {
 
             @Override
             public void visitBinaryOp(IBinaryOpInstruction instruction) {
-                visitor.visitReference(instruction.getType());
+                visitor.visitType(instruction.getType());
             }
 
             @Override
             public void visitUnaryOp(IUnaryOpInstruction instruction) {
-                visitor.visitReference(instruction.getType());
+                visitor.visitType(instruction.getType());
             }
 
             @Override
             public void visitShift(IShiftInstruction instruction) {
-                visitor.visitReference(instruction.getType());
+                visitor.visitType(instruction.getType());
             }
 
             @Override
             public void visitConversion(IConversionInstruction instruction) {
-                visitor.visitReference(instruction.getFromType());
-                visitor.visitReference(instruction.getToType());
+                visitor.visitType(instruction.getFromType());
+                visitor.visitType(instruction.getToType());
             }
 
             @Override
             public void visitComparison(IComparisonInstruction instruction) {
-                visitor.visitReference(instruction.getType());
+                visitor.visitType(instruction.getType());
             }
 
             @Override
             public void visitConditionalBranch(IConditionalBranchInstruction instruction) {
-                visitor.visitReference(instruction.getType());
+                visitor.visitType(instruction.getType());
             }
 
             @Override
@@ -225,29 +225,29 @@ public class TypeReferenceWalker {
 
             @Override
             public void visitReturn(ReturnInstruction instruction) {
-                visitor.visitReference(instruction.getType());
+                visitor.visitType(instruction.getType());
             }
 
             @Override
             public void visitGet(IGetInstruction instruction) {
-                visitor.visitReference(instruction.getClassType());
-                visitor.visitReference(instruction.getFieldType());
+                visitor.visitType(instruction.getClassType());
+                visitor.visitType(instruction.getFieldType());
             }
 
             @Override
             public void visitPut(IPutInstruction instruction) {
-                visitor.visitReference(instruction.getClassType());
-                visitor.visitReference(instruction.getFieldType());
+                visitor.visitType(instruction.getClassType());
+                visitor.visitType(instruction.getFieldType());
             }
 
             @Override
             public void visitInvoke(IInvokeInstruction instruction) {
-                visitor.visitMethodReference(instruction.getClassType(), instruction.getMethodName() + instruction.getMethodSignature());
+                visitor.visitMethod(instruction.getClassType(), instruction.getMethodName() + instruction.getMethodSignature());
             }
 
             @Override
             public void visitNew(NewInstruction instruction) {
-                visitor.visitReference(instruction.getType());
+                visitor.visitType(instruction.getType());
             }
 
             @Override
@@ -267,12 +267,12 @@ public class TypeReferenceWalker {
 
             @Override
             public void visitCheckCast(ITypeTestInstruction instruction) {
-                Arrays.stream(instruction.getTypes()).forEach(visitor::visitReference);
+                Arrays.stream(instruction.getTypes()).forEach(visitor::visitType);
             }
 
             @Override
             public void visitInstanceof(IInstanceofInstruction instruction) {
-                visitor.visitReference(instruction.getType());
+                visitor.visitType(instruction.getType());
             }
 
             @Override
@@ -282,7 +282,7 @@ public class TypeReferenceWalker {
 
             @Override
             public void visitStoreIndirect(IStoreIndirectInstruction instruction) {
-                visitor.visitReference(instruction.getType());
+                visitor.visitType(instruction.getType());
             }
         });
     }
@@ -356,26 +356,26 @@ public class TypeReferenceWalker {
             this.typeResolver = typeResolver;
         }
 
-        public void visitReference(String typeName) {
+        public void visitType(String typeName) {
             TypeReference reference = typeResolver.findReference(typeName);
             if (reference != null) {
-                visitReference(reference);
+                visitType(reference);
             }
         }
 
-        public abstract void visitMethodReference(IMethod method);
+        public abstract void visitType(TypeReference reference);
 
-        public void visitMethodReference(String typeName, String methodSignature) {
+        public void visitType(IClass type) {
+            visitType(type.getReference());
+        }
+
+        public abstract void visitMethod(IMethod method);
+
+        public void visitMethod(String typeName, String methodSignature) {
             IMethod method = typeResolver.resolveMethod(typeName, methodSignature);
             if (method != null) {
-                visitMethodReference(method);
+                visitMethod(method);
             }
-        }
-
-        public abstract void visitReference(TypeReference reference);
-
-        public void visitReference(IClass type) {
-            visitReference(type.getReference());
         }
     }
 }

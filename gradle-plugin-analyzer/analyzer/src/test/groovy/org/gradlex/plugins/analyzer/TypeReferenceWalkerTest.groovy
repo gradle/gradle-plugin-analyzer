@@ -31,12 +31,12 @@ class TypeReferenceWalkerTest extends AbstractAnalysisSpec {
 
         def visitor = new TypeReferenceWalker.ReferenceVisitor(repository.typeResolver) {
             @Override
-            void visitReference(TypeReference reference) {
+            void visitType(TypeReference reference) {
                 types += reference.name.toString()
             }
 
             @Override
-            void visitMethodReference(IMethod method) {
+            void visitMethod(IMethod method) {
                 methods += method.signature
             }
         }

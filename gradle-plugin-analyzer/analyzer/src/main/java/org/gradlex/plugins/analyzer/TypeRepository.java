@@ -141,7 +141,7 @@ public class TypeRepository {
 
                 ReferenceVisitor visitor = new ReferenceVisitor(typeResolver) {
                     @Override
-                    public void visitReference(TypeReference reference) {
+                    public void visitType(TypeReference reference) {
                         IClass type = typeResolver.findClass(reference);
                         if (type != null && TypeOrigin.of(type) == EXTERNAL) {
                             if (seenTypes.add(type)) {
@@ -151,13 +151,13 @@ public class TypeRepository {
                     }
 
                     @Override
-                    public void visitMethodReference(IMethod method) {
+                    public void visitMethod(IMethod method) {
                         IClass type = method.getDeclaringClass();
                         if (TypeOrigin.of(type) == EXTERNAL) {
-                            visitReference(type);
-                            visitReference(method.getReturnType());
+                            visitType(type);
+                            visitType(method.getReturnType());
                             for (int iParam = 0; iParam < method.getNumberOfParameters(); iParam++) {
-                                visitReference(method.getParameterType(iParam));
+                                visitType(method.getParameterType(iParam));
                             }
                         }
                     }
