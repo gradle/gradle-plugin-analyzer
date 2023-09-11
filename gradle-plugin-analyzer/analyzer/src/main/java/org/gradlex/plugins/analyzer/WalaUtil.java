@@ -12,7 +12,6 @@ import com.ibm.wala.types.TypeReference;
 import java.util.ArrayDeque;
 import java.util.HashSet;
 import java.util.Objects;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -76,24 +75,8 @@ public class WalaUtil {
             type.getDirectInterfaces().stream());
     }
 
-    public static void visitImmediateInternalSupertypes(IClass baseType, Consumer<IClass> processor) {
-        visitTypeHierarchy(baseType, superType -> {
-            switch (TypeOrigin.of(superType)) {
-                case PUBLIC -> {
-                    // Ignore referenced public types and their supertypes
-                    return false;
-                }
-                case INTERNAL -> {
-                    // Report referenced internal type
-                    processor.accept(superType);
-                    return false;
-                }
-                default -> {
-                    // Visit external supertype
-                    return true;
-                }
-            }
-        });
+    public static void visitSupertypes(IClass baseType, Predicate<IClass> processor) {
+        visitTypeHierarchy(baseType, processor);
     }
 
     public static String toFQCN(String internalType) {

@@ -21,7 +21,7 @@ public class ShouldNotReferenceInternalApi implements Analysis {
     @Override
     public void analyzeType(IClass type, AnalysisContext context) {
         var references = new LinkedHashSet<Reference>();
-        TypeReferenceWalker.walkReferences(type, context.getResolver(), references::add);
+        TypeReferenceWalker.walkReferences(type, context.getResolver(), TypeOrigin::isExternal, references::add);
 
         references.stream()
             .filter(Reference.sourceIs(EXTERNAL))

@@ -5,6 +5,7 @@ import com.ibm.wala.classLoader.IClass;
 import com.ibm.wala.types.TypeReference;
 import org.gradlex.plugins.analyzer.Analysis;
 import org.gradlex.plugins.analyzer.Reference;
+import org.gradlex.plugins.analyzer.TypeOrigin;
 import org.gradlex.plugins.analyzer.TypeReferenceWalker;
 
 import java.util.LinkedHashSet;
@@ -26,7 +27,7 @@ public class FindTypeReferences implements Analysis {
             .collect(ImmutableSet.toImmutableSet());
 
         var references = new LinkedHashSet<Reference>();
-        TypeReferenceWalker.walkReferences(type, context.getResolver(), references::add);
+        TypeReferenceWalker.walkReferences(type, context.getResolver(), TypeOrigin::any, references::add);
 
         references.stream()
             .filter(Reference.sourceIs(EXTERNAL))

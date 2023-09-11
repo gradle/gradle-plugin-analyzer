@@ -55,13 +55,18 @@ import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 public class TypeReferenceWalker {
 
-    public static void walkReferences(IClass type, TypeResolver typeResolver, Consumer<Reference> handler) {
+    public static void walkReferences(IClass type, TypeResolver typeResolver, Predicate<IClass> hierarchyFilter, Consumer<Reference> handler) {
         ReferenceVisitorFactory visitorFactory = new ReferenceVisitorFactory(typeResolver, handler);
-        WalaUtil.visitImmediateInternalSupertypes(type, visitorFactory.forTypeHierarchy(type)::visitType);
+        ReferenceVisitor hierarchyVisitor = visitorFactory.forTypeHierarchy(type);
+        WalaUtil.visitSupertypes(type, superType -> {
+            hierarchyVisitor.visitType(superType);
+            return hierarchyFilter.test(superType);
+        });
 
         visitAnnotations(type.getAnnotations(), visitorFactory.forTypeAnnotations(type));
 
@@ -76,7 +81,7 @@ public class TypeReferenceWalker {
         Stream.concat(
                 Stream.ofNullable(type.getClassInitializer()),
                 type.getDeclaredMethods().stream())
-            .forEach(method -> visitMethod(method, visitorFactory));
+            .forEach(method -> visitMethod(method, hierarchyFilter, visitorFactory));
     }
 
     private static void visitAnnotations(@Nullable Collection<Annotation> annotations, ReferenceVisitor visitor) {
@@ -114,7 +119,7 @@ public class TypeReferenceWalker {
         });
     }
 
-    private static void visitMethod(IMethod method, ReferenceVisitorFactory visitorFactory) {
+    private static void visitMethod(IMethod method, Predicate<IClass> hierarchyFilter, ReferenceVisitorFactory visitorFactory) {
         visitAnnotations(method.getAnnotations(), visitorFactory.forMethodAnnotations(method));
 
         ReferenceVisitor declarationVisitor = visitorFactory.forMethodDeclaration(method);
@@ -127,11 +132,12 @@ public class TypeReferenceWalker {
         // Do not report inherited constructors as we already report extending internal types
         if (!method.isInit() && !method.isClinit()) {
             ReferenceVisitor inheritanceVisitor = visitorFactory.forMethodInheritance(method);
-            WalaUtil.visitImmediateInternalSupertypes(method.getDeclaringClass(), superType -> {
+            WalaUtil.visitSupertypes(method.getDeclaringClass(), superType -> {
                 IMethod implementedMethod = superType.getMethod(method.getSelector());
                 if (implementedMethod != null) {
                     inheritanceVisitor.visitMethod(implementedMethod);
                 }
+                return hierarchyFilter.test(superType);
             });
         }
 

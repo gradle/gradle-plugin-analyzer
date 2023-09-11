@@ -146,7 +146,7 @@ public class TypeRepository {
                     if (type == null) {
                         break;
                     }
-                    TypeReferenceWalker.walkReferences(type, typeResolver, reference -> {
+                    TypeReferenceWalker.walkReferences(type, typeResolver, TypeOrigin::isExternal, reference -> {
                         Target target = reference.target();
                         if (target instanceof TypeTarget) {
                             IClass targetType = typeResolver.findClass(((TypeTarget) target).type());

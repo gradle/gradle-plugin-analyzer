@@ -29,7 +29,7 @@ class TypeReferenceWalkerTest extends AbstractAnalysisSpec {
         def methods = new TreeSet<String>()
 
         def clazz = repository.typeResolver.findClass("LCustomType")
-        TypeReferenceWalker.walkReferences(clazz, repository.typeResolver, reference -> reference.target().map(
+        TypeReferenceWalker.walkReferences(clazz, repository.typeResolver, TypeOrigin::isExternal, reference -> reference.target().map(
             type -> types += type.name.toString(),
             method -> methods += method.signature
         ))
@@ -38,6 +38,7 @@ class TypeReferenceWalkerTest extends AbstractAnalysisSpec {
         types.toList() == [
             "LClassRef",
             "LStringRef",
+            "Ljava/lang/Object",
             "Lorg/gradle/api/internal/TaskOutputsInternal",
         ]
         methods.toList() == []
