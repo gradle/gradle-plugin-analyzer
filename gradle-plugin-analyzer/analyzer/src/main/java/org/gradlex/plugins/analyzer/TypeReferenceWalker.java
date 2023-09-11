@@ -49,6 +49,10 @@ import java.util.stream.Stream;
 
 public class TypeReferenceWalker {
 
+    public static void walkReferences(IClass type, ReferenceVisitor visitor) {
+        walkReferences(type, ReferenceVisitorFactory.alwaysWith(visitor));
+    }
+
     public static void walkReferences(IClass type, ReferenceVisitorFactory visitorFactory) {
         WalaUtil.visitImmediateInternalSupertypes(type, visitorFactory.forTypeHierarchy(type)::visitType);
 

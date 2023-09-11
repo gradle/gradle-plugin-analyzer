@@ -13,7 +13,6 @@ import com.ibm.wala.types.ClassLoaderReference;
 import com.ibm.wala.types.TypeReference;
 import com.ibm.wala.util.config.FileOfClasses;
 import org.gradlex.plugins.analyzer.TypeReferenceWalker.ReferenceVisitor;
-import org.gradlex.plugins.analyzer.TypeReferenceWalker.ReferenceVisitorFactory;
 
 import javax.annotation.Nonnull;
 import java.io.ByteArrayInputStream;
@@ -162,14 +161,13 @@ public class TypeRepository {
                         }
                     }
                 };
-                ReferenceVisitorFactory visitorFactory = ReferenceVisitorFactory.alwaysWith(visitor);
 
                 while (true) {
                     IClass type = queue.poll();
                     if (type == null) {
                         break;
                     }
-                    TypeReferenceWalker.walkReferences(type, visitorFactory);
+                    TypeReferenceWalker.walkReferences(type, visitor);
                 }
                 return seenTypes.stream();
             }
