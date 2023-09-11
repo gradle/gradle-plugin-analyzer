@@ -20,6 +20,7 @@ import org.gradlex.plugins.analyzer.TypeRepository.TypeSet
 import org.gradlex.plugins.analyzer.TypeRepository.TypeSet.ALL_EXTERNAL_REFERENCED_TYPES
 import org.gradlex.plugins.analyzer.TypeRepository.TypeSet.EXTERNAL_TASK_TYPES
 import org.gradlex.plugins.analyzer.WalaUtil.toFQCN
+import org.gradlex.plugins.analyzer.analysis.FindTypeReferences
 import org.gradlex.plugins.analyzer.analysis.ShouldNotReferenceInternalApi
 import org.gradlex.plugins.analyzer.analysis.TypeShouldExtendType
 import org.gradlex.plugins.analyzer.analysis.TypeShouldNotOverrideGetter
@@ -96,6 +97,12 @@ class TypeShouldNotOverrideSetterRunner(@Input val set: TypeSet) : AnalysisRunne
 class ShouldNotReferenceInternalApiRunner(@Input val set: TypeSet) : AnalysisRunner() {
     override fun executeAnalysis(context: Context) {
         executeAnalysis(context, "Should not reference internal Gradle API", set, ShouldNotReferenceInternalApi())
+    }
+}
+
+class FindTypeReferencesRunner(@Input val set: TypeSet, @Input val typeName: String) : AnalysisRunner() {
+    override fun executeAnalysis(context: Context) {
+        executeAnalysis(context, "References ${typeName}", set, FindTypeReferences(typeName))
     }
 }
 

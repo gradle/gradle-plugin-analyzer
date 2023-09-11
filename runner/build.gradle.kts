@@ -1,3 +1,4 @@
+import Org_gradlex_plugins_analyzer_plugin_gradle.FindTypeReferencesRunner
 import Org_gradlex_plugins_analyzer_plugin_gradle.ShouldNotReferenceInternalApiRunner
 import Org_gradlex_plugins_analyzer_plugin_gradle.TypeShouldExtendTypeRunner
 import Org_gradlex_plugins_analyzer_plugin_gradle.TypeShouldNotOverrideGetterRunner
@@ -20,6 +21,7 @@ pluginAnalyzer {
     analyze(TypeShouldNotOverrideGetterRunner(ALL_EXTERNAL_REFERENCED_TYPES))
     analyze(TypeShouldNotOverrideSetterRunner(ALL_EXTERNAL_REFERENCED_TYPES))
     analyze(ShouldNotReferenceInternalApiRunner(ALL_EXTERNAL_REFERENCED_TYPES))
+    analyze(FindTypeReferencesRunner(ALL_EXTERNAL_REFERENCED_TYPES, "Lorg/gradle/api/resources/TextResource"))
 
     plugin("com.android.application")
     plugin("com.android.library")

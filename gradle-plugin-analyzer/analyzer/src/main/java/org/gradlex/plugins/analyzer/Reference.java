@@ -10,6 +10,20 @@ import java.util.function.Function;
 
 public record Reference(Source source, Target target) {
     public sealed interface Source {
+        default <T> T mapSource(Function<? super IClass, ? extends T> typeHandler,
+                                Function<? super IField, ? extends T> fieldHandler,
+                                Function<? super IMethod, ? extends T> methodHandler) {
+            if (this instanceof TypeSource) {
+                return typeHandler.apply(((TypeSource) this).type());
+            }
+            if (this instanceof FieldSource) {
+                return fieldHandler.apply(((FieldSource) this).field());
+            }
+            if (this instanceof MethodSource) {
+                return methodHandler.apply(((MethodSource) this).method());
+            }
+            throw new AssertionError();
+        }
     }
 
     public sealed interface Target {
@@ -25,22 +39,34 @@ public record Reference(Source source, Target target) {
         }
     }
 
-    public record TypeDeclarationSource(IClass type) implements Source {
+    public sealed interface TypeSource extends Source {
+        IClass type();
     }
 
-    public record TypeInheritanceSource(IClass type) implements Source {
+    public sealed interface FieldSource extends Source {
+        IField field();
     }
 
-    public record FieldDeclarationSource(IField field) implements Source {
+    public sealed interface MethodSource extends Source {
+        IMethod method();
     }
 
-    public record MethodDeclarationSource(IMethod method) implements Source {
+    public record TypeDeclarationSource(IClass type) implements TypeSource {
     }
 
-    public record MethodInheritanceSource(IMethod method) implements Source {
+    public record TypeInheritanceSource(IClass type) implements TypeSource {
     }
 
-    public record MethodBodySource(IMethod method) implements Source {
+    public record FieldDeclarationSource(IField field) implements FieldSource {
+    }
+
+    public record MethodDeclarationSource(IMethod method) implements MethodSource {
+    }
+
+    public record MethodInheritanceSource(IMethod method) implements MethodSource {
+    }
+
+    public record MethodBodySource(IMethod method) implements MethodSource {
     }
 
     public record TypeTarget(TypeReference type) implements Target {
