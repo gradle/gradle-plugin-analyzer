@@ -12,6 +12,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.gradlex.plugins.analyzer.TypeOrigin.EXTERNAL;
 import static org.gradlex.plugins.analyzer.TypeOrigin.INTERNAL;
+import static org.gradlex.plugins.analyzer.TypeReferenceWalker.VisitDecision.VISIT_AND_CONTINUE;
+import static org.gradlex.plugins.analyzer.TypeReferenceWalker.VisitDecision.VISIT_AND_STOP;
 import static org.slf4j.event.Level.WARN;
 
 /**
@@ -21,7 +23,13 @@ public class ShouldNotReferenceInternalApi implements Analysis {
     @Override
     public void analyzeType(IClass type, AnalysisContext context) {
         var references = new LinkedHashSet<Reference>();
-        TypeReferenceWalker.walkReferences(type, context.getResolver(), TypeOrigin::isExternal, references::add);
+        TypeReferenceWalker.walkReferences(
+            type,
+            context.getResolver(),
+            superType -> TypeOrigin.isGradleApi(superType)
+                ? VISIT_AND_STOP
+                : VISIT_AND_CONTINUE,
+            references::add);
 
         references.stream()
             .filter(Reference.sourceIs(EXTERNAL))

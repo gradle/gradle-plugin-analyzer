@@ -5,12 +5,12 @@ import com.ibm.wala.classLoader.IClass;
 import com.ibm.wala.types.TypeReference;
 import org.gradlex.plugins.analyzer.Analysis;
 import org.gradlex.plugins.analyzer.Reference;
-import org.gradlex.plugins.analyzer.TypeOrigin;
 import org.gradlex.plugins.analyzer.TypeReferenceWalker;
 
 import java.util.LinkedHashSet;
 
 import static org.gradlex.plugins.analyzer.TypeOrigin.EXTERNAL;
+import static org.gradlex.plugins.analyzer.TypeReferenceWalker.VisitDecision.VISIT_AND_CONTINUE;
 import static org.slf4j.event.Level.INFO;
 
 public class FindTypeReferences implements Analysis {
@@ -27,7 +27,7 @@ public class FindTypeReferences implements Analysis {
             .collect(ImmutableSet.toImmutableSet());
 
         var references = new LinkedHashSet<Reference>();
-        TypeReferenceWalker.walkReferences(type, context.getResolver(), TypeOrigin::any, references::add);
+        TypeReferenceWalker.walkReferences(type, context.getResolver(), __ -> VISIT_AND_CONTINUE, references::add);
 
         references.stream()
             .filter(Reference.sourceIs(EXTERNAL))

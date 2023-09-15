@@ -8,10 +8,12 @@ import com.ibm.wala.shrike.shrikeBT.IInstruction;
 import com.ibm.wala.shrike.shrikeCT.InvalidClassFileException;
 import com.ibm.wala.types.TypeName;
 import com.ibm.wala.types.TypeReference;
+import org.gradlex.plugins.analyzer.TypeReferenceWalker.VisitDecision;
 
 import java.util.ArrayDeque;
 import java.util.HashSet;
 import java.util.Objects;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -75,8 +77,15 @@ public class WalaUtil {
             type.getDirectInterfaces().stream());
     }
 
-    public static void visitSupertypes(IClass baseType, Predicate<IClass> processor) {
-        visitTypeHierarchy(baseType, processor);
+    public static void visitSupertypes(IClass baseType, Function<IClass, VisitDecision> hierarchyFilter, Consumer<IClass> processor) {
+        visitTypeHierarchy(baseType, superType -> {
+            VisitDecision decision = hierarchyFilter.apply(superType);
+            if (decision == VisitDecision.STOP_DONT_VISIT) {
+                return false;
+            }
+            processor.accept(superType);
+            return decision == VisitDecision.VISIT_AND_CONTINUE;
+        });
     }
 
     public static String toFQCN(String internalType) {

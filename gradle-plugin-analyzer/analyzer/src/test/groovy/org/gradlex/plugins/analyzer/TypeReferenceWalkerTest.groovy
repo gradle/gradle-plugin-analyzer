@@ -1,7 +1,8 @@
 package org.gradlex.plugins.analyzer
 
-
 import org.gradlex.plugins.analyzer.analysis.AbstractAnalysisSpec
+
+import static org.gradlex.plugins.analyzer.TypeReferenceWalker.VisitDecision.VISIT_AND_CONTINUE
 
 class TypeReferenceWalkerTest extends AbstractAnalysisSpec {
     def "annotation references are properly tracked"() {
@@ -29,7 +30,7 @@ class TypeReferenceWalkerTest extends AbstractAnalysisSpec {
         def methods = new TreeSet<String>()
 
         def clazz = repository.typeResolver.findClass("LCustomType")
-        TypeReferenceWalker.walkReferences(clazz, repository.typeResolver, TypeOrigin::isExternal, reference -> reference.target().map(
+        TypeReferenceWalker.walkReferences(clazz, repository.typeResolver, __ -> VISIT_AND_CONTINUE, reference -> reference.target().map(
             type -> types += type.name.toString(),
             method -> methods += method.signature
         ))

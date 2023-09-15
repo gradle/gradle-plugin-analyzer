@@ -7,6 +7,7 @@ import org.gradlex.plugins.analyzer.TypeRepository.TypeSet.ALL_EXTERNAL_REFERENC
 import org.gradlex.plugins.analyzer.TypeRepository.TypeSet.EXTERNAL_TASK_TYPES
 
 plugins {
+    base
     id("org.gradlex.plugins.analyzer.plugin")
 }
 

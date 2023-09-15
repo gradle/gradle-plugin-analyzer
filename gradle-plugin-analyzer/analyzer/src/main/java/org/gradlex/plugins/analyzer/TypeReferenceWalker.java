@@ -55,18 +55,21 @@ import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.function.Consumer;
-import java.util.function.Predicate;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
 public class TypeReferenceWalker {
 
-    public static void walkReferences(IClass type, TypeResolver typeResolver, Predicate<IClass> hierarchyFilter, Consumer<Reference> handler) {
+    public enum VisitDecision {
+        STOP_DONT_VISIT,
+        VISIT_AND_STOP,
+        VISIT_AND_CONTINUE
+    }
+
+    public static void walkReferences(IClass type, TypeResolver typeResolver, Function<IClass, VisitDecision> hierarchyFilter, Consumer<Reference> handler) {
         ReferenceVisitorFactory visitorFactory = new ReferenceVisitorFactory(typeResolver, handler);
         ReferenceVisitor hierarchyVisitor = visitorFactory.forTypeHierarchy(type);
-        WalaUtil.visitSupertypes(type, superType -> {
-            hierarchyVisitor.visitType(superType);
-            return hierarchyFilter.test(superType);
-        });
+        WalaUtil.visitSupertypes(type, hierarchyFilter, hierarchyVisitor::visitType);
 
         visitAnnotations(type.getAnnotations(), visitorFactory.forTypeAnnotations(type));
 
@@ -119,7 +122,7 @@ public class TypeReferenceWalker {
         });
     }
 
-    private static void visitMethod(IMethod method, Predicate<IClass> hierarchyFilter, ReferenceVisitorFactory visitorFactory) {
+    private static void visitMethod(IMethod method, Function<IClass, VisitDecision> hierarchyFilter, ReferenceVisitorFactory visitorFactory) {
         visitAnnotations(method.getAnnotations(), visitorFactory.forMethodAnnotations(method));
 
         ReferenceVisitor declarationVisitor = visitorFactory.forMethodDeclaration(method);
@@ -132,12 +135,11 @@ public class TypeReferenceWalker {
         // Do not report inherited constructors as we already report extending internal types
         if (!method.isInit() && !method.isClinit()) {
             ReferenceVisitor inheritanceVisitor = visitorFactory.forMethodInheritance(method);
-            WalaUtil.visitSupertypes(method.getDeclaringClass(), superType -> {
+            WalaUtil.visitSupertypes(method.getDeclaringClass(), hierarchyFilter, superType -> {
                 IMethod implementedMethod = superType.getMethod(method.getSelector());
                 if (implementedMethod != null) {
                     inheritanceVisitor.visitMethod(implementedMethod);
                 }
-                return hierarchyFilter.test(superType);
             });
         }
 
