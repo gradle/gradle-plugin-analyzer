@@ -13,7 +13,7 @@ repositories {
     gradlePluginPortal()
 }
 
-val walaVersion = "1.6.2"
+val walaVersion = "1.6.3"
 val kotlinVersion = "1.9.20-Beta2"
 
 configurations {
