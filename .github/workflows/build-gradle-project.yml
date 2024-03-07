@@ -36,7 +36,7 @@ jobs:
               with:
                   source: runner/build/plugin-analysis/aggregate-report.md
                   output: runner/build/plugin-analysis/index.html
-                  github-corners: https://github.com/lptr/gradle-plugin-analyzer
+                  github-corners: https://github.com/gradle/gradle-plugin-analyzer
 
             - name: Setup Pages
               uses: actions/configure-pages@v3
