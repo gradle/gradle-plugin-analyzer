@@ -13,8 +13,8 @@ repositories {
     gradlePluginPortal()
 }
 
-val walaVersion = "1.6.3"
-val kotlinVersion = "1.9.20-Beta2"
+val walaVersion = "1.6.7"
+val kotlinVersion = "1.9.25"
 
 configurations {
     create("pluginUnderTest")
@@ -34,7 +34,7 @@ dependencies {
     implementation("org.slf4j:slf4j-api:2.0.7")
     testRuntimeOnly("org.slf4j:slf4j-simple:2.0.7")
 
-    testImplementation("org.codehaus.groovy:groovy:3.0.19") {
+    testImplementation("org.codehaus.groovy:groovy:3.0.22") {
         because("We need Java 21 support")
     }
 
@@ -45,7 +45,7 @@ dependencies {
     implementation("com.ibm.wala:com.ibm.wala.cast.java:${walaVersion}")
     implementation("com.ibm.wala:com.ibm.wala.cast.java.ecj:${walaVersion}")
 
-    implementation("com.google.guava:guava:32.1.2-jre")
+    implementation("com.google.guava:guava:33.3.1-jre")
 
     implementation("org.jetbrains.kotlin:kotlin-compiler-embeddable:$kotlinVersion")
 
